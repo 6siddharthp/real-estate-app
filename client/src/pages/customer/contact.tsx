@@ -48,6 +48,14 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  CreditCard,
+  Car,
+  FileText,
+  Wrench,
+  Key,
+  HelpCircle,
+  Receipt,
+  ArrowRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { ContractWithDetails, ServiceRequest, User as UserType } from "@shared/schema";
@@ -59,6 +67,91 @@ const serviceRequestTypes = [
   { value: "parking_statement", label: "Parking Statement" },
   { value: "maintenance", label: "Maintenance" },
   { value: "other", label: "Other" },
+];
+
+interface ServiceRequestTemplate {
+  id: string;
+  title: string;
+  description: string;
+  icon: typeof CreditCard;
+  type: string;
+  subject: string;
+  descriptionTemplate: string;
+}
+
+const serviceRequestTemplates: ServiceRequestTemplate[] = [
+  {
+    id: "credit_additional_payment",
+    title: "Request Credit for Additional Payment",
+    description: "Made an extra payment? Request credit to your account.",
+    icon: CreditCard,
+    type: "credit_request",
+    subject: "Credit Request for Additional Payment",
+    descriptionTemplate: "I have made an additional payment towards my rent/billing and would like to request a credit adjustment to my account. Please find the payment details below:\n\nPayment Date: [Enter date]\nPayment Amount: [Enter amount]\nPayment Reference/Transaction ID: [Enter reference]\n\nPlease adjust my account balance accordingly.",
+  },
+  {
+    id: "parking_statement",
+    title: "Parking Statement of Account",
+    description: "Request detailed parking charges and payment history.",
+    icon: Car,
+    type: "parking_statement",
+    subject: "Request for Parking Statement of Account",
+    descriptionTemplate: "I would like to request a detailed statement of account for my parking charges. Please provide:\n\n- Monthly parking charges\n- Payment history\n- Any outstanding dues\n- Allocated parking slot details\n\nKindly share the statement for the current financial year.",
+  },
+  {
+    id: "rent_receipt",
+    title: "Rent Receipt Request",
+    description: "Request official rent receipts for tax purposes.",
+    icon: Receipt,
+    type: "document_request",
+    subject: "Request for Rent Receipts",
+    descriptionTemplate: "I require official rent receipts for income tax filing purposes. Please provide rent receipts for the following period:\n\nFrom: [Start Month/Year]\nTo: [End Month/Year]\n\nPlease include the landlord's PAN number on the receipts as per IT regulations.",
+  },
+  {
+    id: "lease_renewal",
+    title: "Lease Renewal Inquiry",
+    description: "Inquire about lease renewal terms and process.",
+    icon: FileText,
+    type: "other",
+    subject: "Inquiry Regarding Lease Renewal",
+    descriptionTemplate: "My current lease is approaching its renewal date and I would like to discuss the renewal terms. Please provide:\n\n- Proposed rent for the renewal period\n- Any changes to terms and conditions\n- Documents required for renewal\n- Timeline for completing the renewal process\n\nI am interested in continuing the lease and would appreciate an early discussion.",
+  },
+  {
+    id: "maintenance_ac",
+    title: "AC/HVAC Maintenance",
+    description: "Report AC or heating/cooling system issues.",
+    icon: Wrench,
+    type: "maintenance",
+    subject: "AC/HVAC Maintenance Request",
+    descriptionTemplate: "I am experiencing issues with the air conditioning/HVAC system in my premises. Details:\n\nIssue Type: [Not cooling/Not heating/Strange noise/Leaking/Other]\nLocation: [Specific area in the premises]\nWhen did the issue start: [Date]\n\nPlease arrange for a technician visit at the earliest convenience. Preferred time slot: [Morning/Afternoon/Evening]",
+  },
+  {
+    id: "maintenance_electrical",
+    title: "Electrical Issue",
+    description: "Report electrical problems or power issues.",
+    icon: Wrench,
+    type: "maintenance",
+    subject: "Electrical Maintenance Request",
+    descriptionTemplate: "I need to report an electrical issue in my premises:\n\nIssue: [Power outage/Socket not working/Light fixture issue/Tripping/Other]\nLocation: [Specific area]\nUrgency: [Normal/Urgent/Emergency]\n\nPlease arrange for an electrician to inspect and resolve the issue.",
+  },
+  {
+    id: "duplicate_key",
+    title: "Duplicate Key Request",
+    description: "Request additional keys for your premises.",
+    icon: Key,
+    type: "other",
+    subject: "Request for Duplicate Keys",
+    descriptionTemplate: "I would like to request duplicate keys for my premises:\n\nNumber of duplicate keys required: [Enter number]\nReason: [Lost key/Additional family member/Staff access/Backup]\n\nPlease let me know the process and any charges applicable for getting duplicate keys.",
+  },
+  {
+    id: "billing_dispute",
+    title: "Billing Dispute",
+    description: "Raise a concern about incorrect billing.",
+    icon: HelpCircle,
+    type: "billing_clarification",
+    subject: "Billing Clarification - Dispute",
+    descriptionTemplate: "I have noticed a discrepancy in my recent bill and would like clarification:\n\nInvoice Number: [Enter invoice number]\nBilled Amount: [Enter amount]\nExpected Amount: [Enter expected amount]\nNature of Dispute: [Overcharge/Duplicate charge/Wrong calculation/Other]\n\nPlease review and provide a detailed breakdown of the charges.",
+  },
 ];
 
 const serviceRequestSchema = z.object({
@@ -73,6 +166,7 @@ type ServiceRequestFormData = z.infer<typeof serviceRequestSchema>;
 export default function CustomerContact() {
   const { selectedContractId } = useContract();
   const { toast } = useToast();
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
   const { data: contracts = [] } = useQuery<ContractWithDetails[]>({
     queryKey: ["/api/customer/contracts"],
@@ -104,6 +198,7 @@ export default function CustomerContact() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customer/service-requests"] });
       form.reset();
+      setSelectedTemplate(null);
       toast({
         title: "Request submitted",
         description: "Your service request has been submitted successfully.",
@@ -120,6 +215,16 @@ export default function CustomerContact() {
 
   const onSubmit = (data: ServiceRequestFormData) => {
     createMutation.mutate(data);
+  };
+
+  const handleTemplateSelect = (template: ServiceRequestTemplate) => {
+    setSelectedTemplate(template.id);
+    form.setValue("type", template.type);
+    form.setValue("subject", template.subject);
+    form.setValue("description", template.descriptionTemplate);
+    if (selectedContractId) {
+      form.setValue("contractId", selectedContractId);
+    }
   };
 
   const getInitials = (name: string) => {
@@ -205,6 +310,7 @@ export default function CustomerContact() {
                       <a
                         href={`mailto:${rm.email}`}
                         className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
+                        data-testid="link-rm-email"
                       >
                         <Mail className="h-4 w-4" />
                         {rm.email}
@@ -213,6 +319,7 @@ export default function CustomerContact() {
                         <a
                           href={`tel:${rm.phone}`}
                           className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors"
+                          data-testid="link-rm-phone"
                         >
                           <Phone className="h-4 w-4" />
                           {rm.phone}
@@ -249,6 +356,7 @@ export default function CustomerContact() {
                     <a
                       href="tel:+911800123456"
                       className="font-medium hover:text-primary transition-colors"
+                      data-testid="link-helpdesk-phone"
                     >
                       1800-123-456
                     </a>
@@ -263,6 +371,7 @@ export default function CustomerContact() {
                     <a
                       href="mailto:support@abcrealestate.com"
                       className="font-medium hover:text-primary transition-colors"
+                      data-testid="link-helpdesk-email"
                     >
                       support@abcrealestate.com
                     </a>
@@ -411,6 +520,49 @@ export default function CustomerContact() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Request Templates</CardTitle>
+          <CardDescription>
+            Select a common request type to quickly fill out the form
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {serviceRequestTemplates.map((template) => {
+              const Icon = template.icon;
+              const isSelected = selectedTemplate === template.id;
+              return (
+                <button
+                  key={template.id}
+                  type="button"
+                  onClick={() => handleTemplateSelect(template)}
+                  className={`flex flex-col items-start gap-2 p-4 rounded-lg border text-left transition-all hover-elevate ${
+                    isSelected
+                      ? "border-primary bg-primary/5"
+                      : "border-border"
+                  }`}
+                  data-testid={`template-${template.id}`}
+                >
+                  <div className={`p-2 rounded-lg ${isSelected ? "bg-primary/10" : "bg-muted"}`}>
+                    <Icon className={`h-5 w-5 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm">{template.title}</h4>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                      {template.description}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-primary mt-auto">
+                    Use template <ArrowRight className="h-3 w-3" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
