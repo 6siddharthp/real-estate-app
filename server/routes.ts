@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
+import pgSession from "connect-pg-simple";
+import { pool } from "./db";
 import { storage } from "./storage";
 import { loginSchema, insertServiceRequestSchema } from "@shared/schema";
 import { z } from "zod";
@@ -16,16 +18,23 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  const PgStore = pgSession(session);
+  
   app.set('trust proxy', 1);
   app.use(
     session({
+      store: new PgStore({
+        pool: pool,
+        tableName: 'user_sessions',
+        createTableIfMissing: true,
+      }),
       secret: process.env.SESSION_SECRET || "abc-real-estate-secret-key",
-      resave: true,
+      resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: false,
+        secure: true,
         httpOnly: true,
-        sameSite: "lax",
+        sameSite: "none",
         maxAge: 24 * 60 * 60 * 1000,
         path: "/",
       },
