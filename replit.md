@@ -62,3 +62,21 @@ Preferred communication style: Simple, everyday language.
 - **@replit/vite-plugin-runtime-error-modal**: Error overlay in development
 - **@replit/vite-plugin-cartographer**: Development tooling (dev only)
 - **@replit/vite-plugin-dev-banner**: Development banner (dev only)
+
+## Recent Changes (February 2026)
+
+### Admin Edit Functionality
+- PUT endpoints for `/api/admin/users/:id`, `/api/admin/properties/:id`, `/api/admin/contracts/:id`
+- Edit dialogs pre-fill with existing entity data
+- Server-side validation using Zod partial schemas
+
+### Bulk Import/Export
+- CSV template download for users, properties, contracts
+- Export current data as CSV
+- Bulk import via CSV file upload with row-level validation
+- Server returns `{ row: number, error: string }[]` for validation errors
+
+### Test Credentials
+- Admin: `admin` / `admin123`
+- Customer: `john.doe` / `demo123`
+- RM: `jane.smith` / `demo123`
