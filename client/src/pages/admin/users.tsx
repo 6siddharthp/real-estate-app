@@ -207,10 +207,10 @@ export default function AdminUsers() {
   };
 
   const handleExportData = () => {
-    const headers = ["username", "name", "email", "phone", "role"];
+    const headers = ["id", "username", "name", "email", "phone", "role"];
     const csvContent = [
       headers.join(","),
-      ...users.map(u => [u.username, u.name, u.email, u.phone || "", u.role].join(","))
+      ...users.map(u => [u.id, u.username, `"${u.name}"`, u.email, u.phone || "", u.role].join(","))
     ].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);

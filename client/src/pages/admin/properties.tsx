@@ -216,10 +216,11 @@ export default function AdminProperties() {
   };
 
   const handleExportData = () => {
-    const headers = ["name", "type", "address", "city", "description"];
+    const headers = ["id", "name", "type", "address", "city", "description"];
     const csvContent = [
       headers.join(","),
       ...properties.map(p => [
+        p.id,
         `"${p.name}"`,
         p.type,
         `"${p.address}"`,
