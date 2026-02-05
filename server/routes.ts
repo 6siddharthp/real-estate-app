@@ -20,13 +20,14 @@ export async function registerRoutes(
   app.use(
     session({
       secret: process.env.SESSION_SECRET || "abc-real-estate-secret-key",
-      resave: false,
+      resave: true,
       saveUninitialized: false,
       cookie: {
-        secure: process.env.NODE_ENV === "production",
+        secure: false,
         httpOnly: true,
         sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000,
+        path: "/",
       },
     })
   );
