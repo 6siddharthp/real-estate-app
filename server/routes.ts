@@ -1,16 +1,304 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import session from "express-session";
 import { storage } from "./storage";
+import { loginSchema, insertServiceRequestSchema } from "@shared/schema";
+import { z } from "zod";
+
+declare module "express-session" {
+  interface SessionData {
+    userId?: string;
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || "abc-real-estate-secret-key",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: false,
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000,
+      },
+    })
+  );
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  function requireAuth(req: any, res: any, next: any) {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    next();
+  }
+
+  async function requireRole(roles: string[]) {
+    return async (req: any, res: any, next: any) => {
+      if (!req.session.userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const user = await storage.getUser(req.session.userId);
+      if (!user || !roles.includes(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      req.user = user;
+      next();
+    };
+  }
+
+  // Auth routes
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = loginSchema.parse(req.body);
+      const user = await storage.getUserByUsername(username);
+
+      if (!user || user.password !== password) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      req.session.userId = user.id;
+      res.json({ user: { ...user, password: undefined } });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    const user = await storage.getUser(req.session.userId);
+    if (!user) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    res.json({ user: { ...user, password: undefined } });
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.json({ message: "Logged out" });
+    });
+  });
+
+  // Customer routes
+  app.get("/api/customer/contracts", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "customer") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const contracts = await storage.getContractsByCustomerId(user.id);
+    res.json(contracts);
+  });
+
+  app.get("/api/customer/bills", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "customer") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const bills = await storage.getBillsByCustomerId(user.id);
+    res.json(bills);
+  });
+
+  app.get("/api/customer/documents", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "customer") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const documents = await storage.getDocumentsByCustomerId(user.id);
+    res.json(documents);
+  });
+
+  app.get("/api/customer/notifications", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "customer") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const notifications = await storage.getNotificationsByUserId(user.id);
+    res.json(notifications);
+  });
+
+  app.patch("/api/customer/notifications/:id/read", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "customer") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    await storage.markNotificationRead(req.params.id);
+    res.json({ success: true });
+  });
+
+  app.patch("/api/customer/notifications/mark-all-read", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "customer") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    await storage.markAllNotificationsRead(user.id);
+    res.json({ success: true });
+  });
+
+  app.get("/api/customer/service-requests", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "customer") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const requests = await storage.getServiceRequestsByCustomerId(user.id);
+    res.json(requests);
+  });
+
+  app.post("/api/customer/service-requests", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "customer") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const data = {
+        ...req.body,
+        customerId: user.id,
+        status: "new",
+      };
+
+      const request = await storage.createServiceRequest(data);
+      res.json(request);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/customer/rm", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "customer") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    const contractId = req.query.contractId as string;
+    if (contractId) {
+      const rm = await storage.getRMForContract(contractId);
+      if (rm) {
+        return res.json({ ...rm, password: undefined });
+      }
+    }
+    
+    if (user.assignedRmId) {
+      const rm = await storage.getUser(user.assignedRmId);
+      if (rm) {
+        return res.json({ ...rm, password: undefined });
+      }
+    }
+    
+    res.json(null);
+  });
+
+  // RM routes
+  app.get("/api/rm/stats", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "rm") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const stats = await storage.getRMStats(user.id);
+    res.json(stats);
+  });
+
+  app.get("/api/rm/customers", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "rm") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const customers = await storage.getCustomersByRmId(user.id);
+    res.json(customers.map((c) => ({ ...c, password: undefined })));
+  });
+
+  app.get("/api/rm/service-requests", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "rm") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const requests = await storage.getServiceRequestsByRmId(user.id);
+    res.json(requests);
+  });
+
+  app.patch("/api/rm/service-requests/:id", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "rm") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    
+    const { status, rmNote } = req.body;
+    await storage.updateServiceRequest(req.params.id, status, rmNote);
+    res.json({ success: true });
+  });
+
+  // Admin routes
+  app.get("/api/admin/stats", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const stats = await storage.getAdminStats();
+    res.json(stats);
+  });
+
+  app.get("/api/admin/users", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const users = await storage.getAllUsers();
+    res.json(users.map((u) => ({ ...u, password: undefined })));
+  });
+
+  app.post("/api/admin/users", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const newUser = await storage.createUser(req.body);
+      res.json({ ...newUser, password: undefined });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  app.get("/api/admin/properties", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const properties = await storage.getAllProperties();
+    res.json(properties);
+  });
+
+  app.get("/api/admin/contracts", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const contracts = await storage.getAllContractsWithDetails();
+    res.json(contracts);
+  });
+
+  app.get("/api/admin/service-requests", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const requests = await storage.getAllServiceRequests();
+    res.json(requests);
+  });
 
   return httpServer;
 }
