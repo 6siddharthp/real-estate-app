@@ -452,6 +452,20 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/admin/properties/:id", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      await storage.deleteProperty(req.params.id);
+      res.json({ message: "Property deleted" });
+    } catch (error) {
+      console.error("Delete property error:", error);
+      res.status(500).json({ message: "Failed to delete property" });
+    }
+  });
+
   app.post("/api/admin/properties/bulk", requireAuth, async (req, res) => {
     try {
       const user = await storage.getUser(req.session.userId!);

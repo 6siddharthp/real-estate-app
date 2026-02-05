@@ -41,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Building, Home, Plus, Loader2, Pencil, Download, Upload } from "lucide-react";
+import { Building, Home, Plus, Loader2, Pencil, Download, Upload, Trash2 } from "lucide-react";
 import type { Property } from "@shared/schema";
 
 const propertySchema = z.object({
@@ -151,6 +151,32 @@ export default function AdminProperties() {
       });
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/admin/properties/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/properties"] });
+      toast({
+        title: "Property deleted",
+        description: "The property has been deleted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete property",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = (property: Property) => {
+    if (confirm(`Are you sure you want to delete "${property.name}"?`)) {
+      deleteMutation.mutate(property.id);
+    }
+  };
 
   const onCreateSubmit = (data: PropertyFormData) => {
     createMutation.mutate(data);
@@ -500,9 +526,14 @@ export default function AdminProperties() {
                     <TableCell className="max-w-xs truncate">{property.address}</TableCell>
                     <TableCell>{property.city}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(property)} data-testid={`button-edit-property-${property.id}`}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(property)} data-testid={`button-edit-property-${property.id}`}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(property)} data-testid={`button-delete-property-${property.id}`}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

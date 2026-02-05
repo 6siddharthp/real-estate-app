@@ -43,6 +43,7 @@ export interface IStorage {
   getAllProperties(): Promise<Property[]>;
   createProperty(property: InsertProperty): Promise<Property>;
   updateProperty(id: string, property: Partial<InsertProperty>): Promise<Property>;
+  deleteProperty(id: string): Promise<void>;
   bulkCreateProperties(propertiesData: InsertProperty[]): Promise<Property[]>;
 
   // Contracts
@@ -152,6 +153,10 @@ export class DatabaseStorage implements IStorage {
   async updateProperty(id: string, property: Partial<InsertProperty>): Promise<Property> {
     const [updated] = await db.update(properties).set(property).where(eq(properties.id, id)).returning();
     return updated;
+  }
+
+  async deleteProperty(id: string): Promise<void> {
+    await db.delete(properties).where(eq(properties.id, id));
   }
 
   async bulkCreateProperties(propertiesData: InsertProperty[]): Promise<Property[]> {
