@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import pgSession from "connect-pg-simple";
+import cors from "cors";
 import { pool } from "./db";
 import { storage } from "./storage";
 import { loginSchema, insertServiceRequestSchema } from "@shared/schema";
@@ -21,6 +22,13 @@ export async function registerRoutes(
   const PgStore = pgSession(session);
   
   app.set('trust proxy', 1);
+  
+  app.use(cors({
+    origin: true,
+    credentials: true,
+  }));
+  
+  const isProduction = process.env.NODE_ENV === "production";
   app.use(
     session({
       store: new PgStore({
@@ -31,21 +39,56 @@ export async function registerRoutes(
       secret: process.env.SESSION_SECRET || "abc-real-estate-secret-key",
       resave: false,
       saveUninitialized: false,
+      proxy: true,
       cookie: {
-        secure: true,
+        secure: isProduction,
         httpOnly: true,
-        sameSite: "none",
+        sameSite: isProduction ? "none" : "lax",
         maxAge: 24 * 60 * 60 * 1000,
         path: "/",
       },
     })
   );
 
-  function requireAuth(req: any, res: any, next: any) {
-    if (!req.session.userId) {
-      return res.status(401).json({ message: "Unauthorized" });
+  // Token-based auth lookup for fallback when cookies don't work
+  async function getUserIdFromToken(token: string): Promise<string | null> {
+    try {
+      const result = await pool.query(
+        "SELECT sess FROM user_sessions WHERE sid = $1 AND expire > NOW()",
+        [token]
+      );
+      if (result.rows.length > 0) {
+        const sess = result.rows[0].sess;
+        return typeof sess === 'string' ? JSON.parse(sess).userId : sess.userId;
+      }
+    } catch (e) {
+      console.error("Token lookup error:", e);
     }
-    next();
+    return null;
+  }
+
+  function requireAuth(req: any, res: any, next: any) {
+    // First check session cookie
+    if (req.session.userId) {
+      return next();
+    }
+    
+    // Fallback: check X-Auth-Token header
+    const token = req.headers["x-auth-token"];
+    if (token) {
+      getUserIdFromToken(token).then((userId) => {
+        if (userId) {
+          req.session.userId = userId;
+          return next();
+        }
+        return res.status(401).json({ message: "Unauthorized" });
+      }).catch(() => {
+        return res.status(401).json({ message: "Unauthorized" });
+      });
+      return;
+    }
+    
+    return res.status(401).json({ message: "Unauthorized" });
   }
 
   async function requireRole(roles: string[]) {
@@ -78,7 +121,11 @@ export async function registerRoutes(
           console.error("Session save error:", err);
           return res.status(500).json({ message: "Session error" });
         }
-        res.json({ user: { ...user, password: undefined } });
+        // Return session ID as token for localStorage fallback
+        res.json({ 
+          user: { ...user, password: undefined },
+          token: req.sessionID 
+        });
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -89,17 +136,33 @@ export async function registerRoutes(
   });
 
   app.get("/api/auth/me", async (req, res) => {
-    if (!req.session.userId) {
+    // Check X-Auth-Token header as fallback
+    const token = req.headers["x-auth-token"] as string | undefined;
+    
+    let userId: string | undefined = req.session.userId;
+    
+    if (!userId && token) {
+      const tokenUserId = await getUserIdFromToken(token);
+      if (tokenUserId) {
+        userId = tokenUserId;
+        req.session.userId = userId;
+      }
+    }
+    
+    if (!userId) {
       return res.status(401).json({ message: "Not authenticated" });
     }
 
-    const user = await storage.getUser(req.session.userId);
+    const user = await storage.getUser(userId);
     if (!user) {
       req.session.destroy(() => {});
       return res.status(401).json({ message: "User not found" });
     }
 
-    res.json({ user: { ...user, password: undefined } });
+    res.json({ 
+      user: { ...user, password: undefined },
+      token: req.sessionID
+    });
   });
 
   app.post("/api/auth/logout", (req, res) => {
