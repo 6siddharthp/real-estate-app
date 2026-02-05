@@ -34,12 +34,16 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
   getAllUsers(): Promise<User[]>;
+  bulkCreateUsers(usersData: InsertUser[]): Promise<User[]>;
 
   // Properties
   getProperty(id: string): Promise<Property | undefined>;
   getAllProperties(): Promise<Property[]>;
   createProperty(property: InsertProperty): Promise<Property>;
+  updateProperty(id: string, property: Partial<InsertProperty>): Promise<Property>;
+  bulkCreateProperties(propertiesData: InsertProperty[]): Promise<Property[]>;
 
   // Contracts
   getContract(id: string): Promise<Contract | undefined>;
@@ -48,6 +52,8 @@ export interface IStorage {
   getAllContracts(): Promise<Contract[]>;
   getAllContractsWithDetails(): Promise<(Contract & { property: Property; customer: User; rm?: User })[]>;
   createContract(contract: InsertContract): Promise<Contract>;
+  updateContract(id: string, contract: Partial<InsertContract>): Promise<Contract>;
+  bulkCreateContracts(contractsData: InsertContract[]): Promise<Contract[]>;
 
   // Bills
   getBillsByContractId(contractId: string): Promise<BillWithContract[]>;
@@ -114,8 +120,19 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async updateUser(id: string, user: Partial<InsertUser>): Promise<User> {
+    const [updated] = await db.update(users).set(user).where(eq(users.id, id)).returning();
+    return updated;
+  }
+
   async getAllUsers(): Promise<User[]> {
     return db.select().from(users);
+  }
+
+  async bulkCreateUsers(usersData: InsertUser[]): Promise<User[]> {
+    if (usersData.length === 0) return [];
+    const created = await db.insert(users).values(usersData).returning();
+    return created;
   }
 
   async getProperty(id: string): Promise<Property | undefined> {
@@ -129,6 +146,17 @@ export class DatabaseStorage implements IStorage {
 
   async createProperty(property: InsertProperty): Promise<Property> {
     const [created] = await db.insert(properties).values(property).returning();
+    return created;
+  }
+
+  async updateProperty(id: string, property: Partial<InsertProperty>): Promise<Property> {
+    const [updated] = await db.update(properties).set(property).where(eq(properties.id, id)).returning();
+    return updated;
+  }
+
+  async bulkCreateProperties(propertiesData: InsertProperty[]): Promise<Property[]> {
+    if (propertiesData.length === 0) return [];
+    const created = await db.insert(properties).values(propertiesData).returning();
     return created;
   }
 
@@ -192,6 +220,17 @@ export class DatabaseStorage implements IStorage {
 
   async createContract(contract: InsertContract): Promise<Contract> {
     const [created] = await db.insert(contracts).values(contract).returning();
+    return created;
+  }
+
+  async updateContract(id: string, contract: Partial<InsertContract>): Promise<Contract> {
+    const [updated] = await db.update(contracts).set(contract).where(eq(contracts.id, id)).returning();
+    return updated;
+  }
+
+  async bulkCreateContracts(contractsData: InsertContract[]): Promise<Contract[]> {
+    if (contractsData.length === 0) return [];
+    const created = await db.insert(contracts).values(contractsData).returning();
     return created;
   }
 

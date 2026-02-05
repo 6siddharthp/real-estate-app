@@ -5,7 +5,7 @@ import pgSession from "connect-pg-simple";
 import cors from "cors";
 import { pool } from "./db";
 import { storage } from "./storage";
-import { loginSchema, insertServiceRequestSchema, insertPropertySchema, insertContractSchema } from "@shared/schema";
+import { loginSchema, insertServiceRequestSchema, insertPropertySchema, insertContractSchema, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 
 declare module "express-session" {
@@ -354,6 +354,59 @@ export async function registerRoutes(
     }
   });
 
+  app.put("/api/admin/users/:id", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const { password, ...updateData } = req.body;
+      const validatedData = insertUserSchema.partial().parse(updateData);
+      const updates = password ? { ...validatedData, password } : validatedData;
+      const updated = await storage.updateUser(req.params.id, updates);
+      res.json({ ...updated, password: undefined });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Update user error:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.post("/api/admin/users/bulk", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const { users: usersData } = req.body;
+      if (!Array.isArray(usersData)) {
+        return res.status(400).json({ message: "Invalid data format" });
+      }
+      const errors: { row: number; error: string }[] = [];
+      const validatedData = usersData.map((userData, index) => {
+        try {
+          return insertUserSchema.parse(userData);
+        } catch (err) {
+          if (err instanceof z.ZodError) {
+            errors.push({ row: index + 1, error: err.errors[0].message });
+          }
+          return null;
+        }
+      }).filter(Boolean);
+      
+      if (errors.length > 0) {
+        return res.status(400).json({ message: "Validation errors", errors });
+      }
+      const created = await storage.bulkCreateUsers(validatedData as any);
+      res.json({ created: created.length, users: created.map(u => ({ ...u, password: undefined })) });
+    } catch (error) {
+      console.error("Bulk create users error:", error);
+      res.status(500).json({ message: "Failed to bulk create users" });
+    }
+  });
+
   app.get("/api/admin/properties", requireAuth, async (req, res) => {
     const user = await storage.getUser(req.session.userId!);
     if (!user || user.role !== "admin") {
@@ -378,6 +431,57 @@ export async function registerRoutes(
       }
       console.error("Create property error:", error);
       res.status(500).json({ message: "Failed to create property" });
+    }
+  });
+
+  app.put("/api/admin/properties/:id", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const validatedData = insertPropertySchema.partial().parse(req.body);
+      const updated = await storage.updateProperty(req.params.id, validatedData);
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Update property error:", error);
+      res.status(500).json({ message: "Failed to update property" });
+    }
+  });
+
+  app.post("/api/admin/properties/bulk", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const { properties: propertiesData } = req.body;
+      if (!Array.isArray(propertiesData)) {
+        return res.status(400).json({ message: "Invalid data format" });
+      }
+      const errors: { row: number; error: string }[] = [];
+      const validatedData = propertiesData.map((propData, index) => {
+        try {
+          return insertPropertySchema.parse(propData);
+        } catch (err) {
+          if (err instanceof z.ZodError) {
+            errors.push({ row: index + 1, error: err.errors[0].message });
+          }
+          return null;
+        }
+      }).filter(Boolean);
+      
+      if (errors.length > 0) {
+        return res.status(400).json({ message: "Validation errors", errors });
+      }
+      const created = await storage.bulkCreateProperties(validatedData as any);
+      res.json({ created: created.length, properties: created });
+    } catch (error) {
+      console.error("Bulk create properties error:", error);
+      res.status(500).json({ message: "Failed to bulk create properties" });
     }
   });
 
@@ -418,6 +522,74 @@ export async function registerRoutes(
       }
       console.error("Create contract error:", error);
       res.status(500).json({ message: "Failed to create contract" });
+    }
+  });
+
+  app.put("/api/admin/contracts/:id", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      // Parse dates if they're strings
+      const body = { ...req.body };
+      if (typeof body.startDate === 'string') {
+        body.startDate = new Date(body.startDate);
+      }
+      if (typeof body.endDate === 'string') {
+        body.endDate = new Date(body.endDate);
+      }
+      if (body.renewalDate && typeof body.renewalDate === 'string') {
+        body.renewalDate = new Date(body.renewalDate);
+      }
+      
+      const validatedData = insertContractSchema.partial().parse(body);
+      const updated = await storage.updateContract(req.params.id, validatedData);
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Update contract error:", error);
+      res.status(500).json({ message: "Failed to update contract" });
+    }
+  });
+
+  app.post("/api/admin/contracts/bulk", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const { contracts: contractsData } = req.body;
+      if (!Array.isArray(contractsData)) {
+        return res.status(400).json({ message: "Invalid data format" });
+      }
+      const errors: { row: number; error: string }[] = [];
+      const validatedData = contractsData.map((contractData, index) => {
+        try {
+          const body = { ...contractData };
+          if (typeof body.startDate === 'string') body.startDate = new Date(body.startDate);
+          if (typeof body.endDate === 'string') body.endDate = new Date(body.endDate);
+          if (body.renewalDate && typeof body.renewalDate === 'string') body.renewalDate = new Date(body.renewalDate);
+          return insertContractSchema.parse(body);
+        } catch (err) {
+          if (err instanceof z.ZodError) {
+            errors.push({ row: index + 1, error: err.errors[0].message });
+          }
+          return null;
+        }
+      }).filter(Boolean);
+      
+      if (errors.length > 0) {
+        return res.status(400).json({ message: "Validation errors", errors });
+      }
+      const created = await storage.bulkCreateContracts(validatedData as any);
+      res.json({ created: created.length, contracts: created });
+    } catch (error) {
+      console.error("Bulk create contracts error:", error);
+      res.status(500).json({ message: "Failed to bulk create contracts" });
     }
   });
 

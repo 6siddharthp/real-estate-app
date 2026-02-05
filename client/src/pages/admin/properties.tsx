@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -41,29 +41,43 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Building, Home, MapPin, Plus, Loader2 } from "lucide-react";
+import { Building, Home, Plus, Loader2, Pencil, Download, Upload } from "lucide-react";
 import type { Property } from "@shared/schema";
 
-const createPropertySchema = z.object({
+const propertySchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   type: z.enum(["retail", "residential"]),
   address: z.string().min(5, "Address must be at least 5 characters"),
-  city: z.string().min(2, "City must be at least 2 characters"),
+  city: z.string().min(2, "City is required"),
   description: z.string().optional(),
 });
 
-type CreatePropertyFormData = z.infer<typeof createPropertySchema>;
+type PropertyFormData = z.infer<typeof propertySchema>;
 
 export default function AdminProperties() {
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: properties = [], isLoading } = useQuery<Property[]>({
     queryKey: ["/api/admin/properties"],
   });
 
-  const form = useForm<CreatePropertyFormData>({
-    resolver: zodResolver(createPropertySchema),
+  const createForm = useForm<PropertyFormData>({
+    resolver: zodResolver(propertySchema),
+    defaultValues: {
+      name: "",
+      type: "retail",
+      address: "",
+      city: "",
+      description: "",
+    },
+  });
+
+  const editForm = useForm<PropertyFormData>({
+    resolver: zodResolver(propertySchema),
     defaultValues: {
       name: "",
       type: "retail",
@@ -74,13 +88,13 @@ export default function AdminProperties() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: CreatePropertyFormData) => {
+    mutationFn: async (data: PropertyFormData) => {
       await apiRequest("POST", "/api/admin/properties", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/properties"] });
-      form.reset();
-      setOpen(false);
+      createForm.reset();
+      setCreateOpen(false);
       toast({
         title: "Property created",
         description: "The property has been created successfully.",
@@ -95,8 +109,130 @@ export default function AdminProperties() {
     },
   });
 
-  const onSubmit = (data: CreatePropertyFormData) => {
+  const editMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: PropertyFormData }) => {
+      await apiRequest("PUT", `/api/admin/properties/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/properties"] });
+      editForm.reset();
+      setEditOpen(false);
+      setEditingProperty(null);
+      toast({
+        title: "Property updated",
+        description: "The property has been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update property",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkImportMutation = useMutation({
+    mutationFn: async (propertiesData: any[]) => {
+      await apiRequest("POST", "/api/admin/properties/bulk", { properties: propertiesData });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/properties"] });
+      toast({
+        title: "Import successful",
+        description: "Properties have been imported successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Import failed",
+        description: error instanceof Error ? error.message : "Failed to import properties",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onCreateSubmit = (data: PropertyFormData) => {
     createMutation.mutate(data);
+  };
+
+  const onEditSubmit = (data: PropertyFormData) => {
+    if (editingProperty) {
+      editMutation.mutate({ id: editingProperty.id, data });
+    }
+  };
+
+  const handleEdit = (property: Property) => {
+    setEditingProperty(property);
+    editForm.reset({
+      name: property.name,
+      type: property.type as "retail" | "residential",
+      address: property.address,
+      city: property.city,
+      description: property.description || "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleExportTemplate = () => {
+    const headers = ["name", "type", "address", "city", "description"];
+    const sampleData = [
+      ["Phoenix MarketCity - Shop G-15", "retail", "LBS Marg, Kurla West", "Mumbai", "Ground floor retail space"],
+    ];
+    const csvContent = [headers.join(","), ...sampleData.map(row => row.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "properties_template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportData = () => {
+    const headers = ["name", "type", "address", "city", "description"];
+    const csvContent = [
+      headers.join(","),
+      ...properties.map(p => [
+        `"${p.name}"`,
+        p.type,
+        `"${p.address}"`,
+        p.city,
+        `"${p.description || ""}"`
+      ].join(","))
+    ].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "properties_export.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split("\n").filter(line => line.trim());
+      const headers = lines[0].split(",").map(h => h.trim().replace(/"/g, ""));
+      
+      const propertiesData = lines.slice(1).map(line => {
+        const values = line.match(/(".*?"|[^,]+)/g)?.map(v => v.trim().replace(/^"|"$/g, "")) || [];
+        const property: Record<string, string> = {};
+        headers.forEach((header, index) => {
+          property[header] = values[index] || "";
+        });
+        return property;
+      });
+
+      bulkImportMutation.mutate(propertiesData);
+    };
+    reader.readAsText(file);
+    event.target.value = "";
   };
 
   if (isLoading) {
@@ -110,7 +246,7 @@ export default function AdminProperties() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Building className="h-6 w-6" />
@@ -120,147 +256,220 @@ export default function AdminProperties() {
             All properties in the system ({properties.length})
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-create-property">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Property
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Property</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Property Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Phoenix MarketCity - Shop G-15"
-                          data-testid="input-property-name"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Property Type</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                      >
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={handleExportTemplate} data-testid="button-export-template">
+            <Download className="mr-2 h-4 w-4" />
+            Template
+          </Button>
+          <Button variant="outline" onClick={handleExportData} data-testid="button-export-data">
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={bulkImportMutation.isPending} data-testid="button-import">
+            <Upload className="mr-2 h-4 w-4" />
+            Import CSV
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-create-property">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Property
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Property</DialogTitle>
+              </DialogHeader>
+              <Form {...createForm}>
+                <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
+                  <FormField
+                    control={createForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Property Name</FormLabel>
                         <FormControl>
-                          <SelectTrigger data-testid="select-property-type">
-                            <SelectValue />
-                          </SelectTrigger>
+                          <Input placeholder="Phoenix MarketCity - Shop G-15" data-testid="input-property-name" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="retail">Retail</SelectItem>
-                          <SelectItem value="residential">Residential</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Address</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Phoenix MarketCity, LBS Marg, Kurla West"
-                          data-testid="input-property-address"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="city"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>City</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Mumbai"
-                          data-testid="input-property-city"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Premium retail space in high-traffic shopping mall"
-                          data-testid="input-property-description"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={createMutation.isPending}
-                  data-testid="button-submit-property"
-                >
-                  {createMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    "Add Property"
-                  )}
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createForm.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Type</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-property-type">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="retail">Retail</SelectItem>
+                            <SelectItem value="residential">Residential</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createForm.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="LBS Marg, Kurla West" data-testid="input-property-address" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createForm.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Mumbai" data-testid="input-property-city" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createForm.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Ground floor retail space" data-testid="input-property-description" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" className="w-full" disabled={createMutation.isPending} data-testid="button-submit-property">
+                    {createMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Adding...</>) : "Add Property"}
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Property</DialogTitle>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Property Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Phoenix MarketCity - Shop G-15" data-testid="input-edit-name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="retail">Retail</SelectItem>
+                        <SelectItem value="residential">Residential</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="LBS Marg, Kurla West" data-testid="input-edit-address" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>City</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Mumbai" data-testid="input-edit-city" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Ground floor retail space" data-testid="input-edit-description" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={editMutation.isPending} data-testid="button-save-property">
+                {editMutation.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : "Save Changes"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Property Name</TableHead>
+                <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Address</TableHead>
                 <TableHead>City</TableHead>
-                <TableHead>Description</TableHead>
+                <TableHead className="w-16">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -273,30 +482,27 @@ export default function AdminProperties() {
               ) : (
                 properties.map((property) => (
                   <TableRow key={property.id} data-testid={`row-property-${property.id}`}>
-                    <TableCell className="font-medium">
+                    <TableCell>
                       <div className="flex items-center gap-2">
                         {property.type === "retail" ? (
                           <Building className="h-4 w-4 text-primary" />
                         ) : (
                           <Home className="h-4 w-4 text-primary" />
                         )}
-                        {property.name}
+                        <span className="font-medium">{property.name}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="capitalize">
+                      <Badge variant="outline" className="capitalize">
                         {property.type}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-sm">
-                        <MapPin className="h-3 w-3 text-muted-foreground" />
-                        {property.address}
-                      </div>
-                    </TableCell>
+                    <TableCell className="max-w-xs truncate">{property.address}</TableCell>
                     <TableCell>{property.city}</TableCell>
-                    <TableCell className="max-w-[200px] truncate text-muted-foreground">
-                      {property.description || "-"}
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(property)} data-testid={`button-edit-property-${property.id}`}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
