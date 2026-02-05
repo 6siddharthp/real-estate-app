@@ -16,14 +16,16 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  app.set('trust proxy', 1);
   app.use(
     session({
       secret: process.env.SESSION_SECRET || "abc-real-estate-secret-key",
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: false,
+        secure: process.env.NODE_ENV === "production",
         httpOnly: true,
+        sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000,
       },
     })

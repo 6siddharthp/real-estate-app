@@ -399,7 +399,7 @@ export class DatabaseStorage implements IStorage {
     inProgressRequests: number;
   }> {
     const rmContracts = await this.getContractsByRmId(rmId);
-    const customerIds = [...new Set(rmContracts.map((c) => c.customerId))];
+    const customerIds = Array.from(new Set(rmContracts.map((c) => c.customerId)));
     const requests = await this.getServiceRequestsByRmId(rmId);
 
     return {
@@ -436,7 +436,7 @@ export class DatabaseStorage implements IStorage {
 
   async getCustomersByRmId(rmId: string): Promise<(User & { contracts: ContractWithDetails[] })[]> {
     const rmContracts = await this.getContractsByRmId(rmId);
-    const customerIds = [...new Set(rmContracts.map((c) => c.customerId))];
+    const customerIds = Array.from(new Set(rmContracts.map((c) => c.customerId)));
 
     const result: (User & { contracts: ContractWithDetails[] })[] = [];
     for (const customerId of customerIds) {

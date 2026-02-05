@@ -81,7 +81,8 @@ export async function seedDatabase() {
     })
     .returning();
 
-  // Create Properties
+  // Create 10 Properties (5 per customer)
+  // Properties for John Doe
   const [prop1] = await db
     .insert(properties)
     .values({
@@ -118,6 +119,29 @@ export async function seedDatabase() {
   const [prop4] = await db
     .insert(properties)
     .values({
+      name: "High Street Phoenix - Shop F-22",
+      type: "retail",
+      address: "High Street Phoenix, Lower Parel",
+      city: "Mumbai",
+      description: "Premium fashion retail outlet in iconic mall",
+    })
+    .returning();
+
+  const [prop5] = await db
+    .insert(properties)
+    .values({
+      name: "Lodha Bellezza - Unit 1501",
+      type: "residential",
+      address: "Lodha Bellezza, Kukatpally",
+      city: "Hyderabad",
+      description: "4BHK penthouse with city skyline view",
+    })
+    .returning();
+
+  // Properties for Jane Smith
+  const [prop6] = await db
+    .insert(properties)
+    .values({
       name: "Select Citywalk - Shop 2F-45",
       type: "retail",
       address: "Select Citywalk Mall, Saket",
@@ -126,22 +150,51 @@ export async function seedDatabase() {
     })
     .returning();
 
-  const [prop5] = await db
+  const [prop7] = await db
     .insert(properties)
     .values({
       name: "DLF Park Place - Unit 806",
       type: "residential",
       address: "DLF Park Place, Golf Course Road, Sector 54",
       city: "Gurugram",
-      description: "4BHK luxury apartment",
+      description: "4BHK luxury apartment with golf course view",
     })
     .returning();
 
-  // Create Contracts for Customer 1 (2 retail + 1 residential)
-  const startDate1 = new Date("2023-04-01");
-  const endDate1 = new Date("2026-03-31");
-  const renewalDate1 = new Date("2025-10-01");
+  const [prop8] = await db
+    .insert(properties)
+    .values({
+      name: "Ambience Mall - Shop GF-18",
+      type: "retail",
+      address: "Ambience Mall, Vasant Kunj",
+      city: "Delhi",
+      description: "Ground floor anchor store space",
+    })
+    .returning();
 
+  const [prop9] = await db
+    .insert(properties)
+    .values({
+      name: "DLF Cyber Hub - Office 401",
+      type: "retail",
+      address: "DLF Cyber Hub, DLF Cyber City",
+      city: "Gurugram",
+      description: "Commercial office space in IT hub",
+    })
+    .returning();
+
+  const [prop10] = await db
+    .insert(properties)
+    .values({
+      name: "Emaar Palm Heights - Unit 2203",
+      type: "residential",
+      address: "Emaar Palm Heights, Sector 77",
+      city: "Gurugram",
+      description: "3BHK premium apartment with club facilities",
+    })
+    .returning();
+
+  // Create 5 Contracts for John Doe
   const [contract1] = await db
     .insert(contracts)
     .values({
@@ -152,9 +205,9 @@ export async function seedDatabase() {
       sqft: 1200,
       rentPerMonth: "85000.00",
       securityDeposit: "510000.00",
-      startDate: startDate1,
-      endDate: endDate1,
-      renewalDate: renewalDate1,
+      startDate: new Date("2023-04-01"),
+      endDate: new Date("2026-03-31"),
+      renewalDate: new Date("2025-10-01"),
       rentUpliftPercent: "5.00",
       rentUpliftClause: "5% annual escalation on lease anniversary",
       status: "active",
@@ -199,13 +252,51 @@ export async function seedDatabase() {
     })
     .returning();
 
-  // Create Contracts for Customer 2 (1 retail + 1 residential)
-  const [contract4] = await db
+  const [contract4John] = await db
     .insert(contracts)
     .values({
-      leaseNumber: "ABC-DEL-2023-004",
-      customerId: customer2.id,
+      leaseNumber: "ABC-MUM-2024-004",
+      customerId: customer1.id,
       propertyId: prop4.id,
+      rmId: rm1.id,
+      sqft: 950,
+      rentPerMonth: "115000.00",
+      securityDeposit: "690000.00",
+      startDate: new Date("2024-03-01"),
+      endDate: new Date("2027-02-28"),
+      renewalDate: new Date("2026-09-01"),
+      rentUpliftPercent: "5.00",
+      rentUpliftClause: "5% annual escalation",
+      status: "active",
+    })
+    .returning();
+
+  const [contract5John] = await db
+    .insert(contracts)
+    .values({
+      leaseNumber: "ABC-HYD-2024-005",
+      customerId: customer1.id,
+      propertyId: prop5.id,
+      rmId: rm1.id,
+      sqft: 2800,
+      rentPerMonth: "185000.00",
+      securityDeposit: "1110000.00",
+      startDate: new Date("2024-06-01"),
+      endDate: new Date("2027-05-31"),
+      renewalDate: new Date("2026-12-01"),
+      rentUpliftPercent: "4.50",
+      rentUpliftClause: "4.5% annual escalation",
+      status: "active",
+    })
+    .returning();
+
+  // Create 5 Contracts for Jane Smith
+  const [contract1Jane] = await db
+    .insert(contracts)
+    .values({
+      leaseNumber: "ABC-DEL-2023-006",
+      customerId: customer2.id,
+      propertyId: prop6.id,
       rmId: rm2.id,
       sqft: 800,
       rentPerMonth: "95000.00",
@@ -219,12 +310,12 @@ export async function seedDatabase() {
     })
     .returning();
 
-  const [contract5] = await db
+  const [contract2Jane] = await db
     .insert(contracts)
     .values({
-      leaseNumber: "ABC-GUR-2024-005",
+      leaseNumber: "ABC-GUR-2024-007",
       customerId: customer2.id,
-      propertyId: prop5.id,
+      propertyId: prop7.id,
       rmId: rm2.id,
       sqft: 2400,
       rentPerMonth: "175000.00",
@@ -234,6 +325,63 @@ export async function seedDatabase() {
       renewalDate: new Date("2026-08-01"),
       rentUpliftPercent: "5.00",
       rentUpliftClause: "5% annual escalation",
+      status: "active",
+    })
+    .returning();
+
+  const [contract3Jane] = await db
+    .insert(contracts)
+    .values({
+      leaseNumber: "ABC-DEL-2024-008",
+      customerId: customer2.id,
+      propertyId: prop8.id,
+      rmId: rm2.id,
+      sqft: 1500,
+      rentPerMonth: "135000.00",
+      securityDeposit: "810000.00",
+      startDate: new Date("2024-01-15"),
+      endDate: new Date("2026-01-14"),
+      renewalDate: new Date("2025-07-15"),
+      rentUpliftPercent: "4.00",
+      rentUpliftClause: "4% annual escalation",
+      status: "pending_renewal",
+    })
+    .returning();
+
+  const [contract4Jane] = await db
+    .insert(contracts)
+    .values({
+      leaseNumber: "ABC-GUR-2024-009",
+      customerId: customer2.id,
+      propertyId: prop9.id,
+      rmId: rm2.id,
+      sqft: 3200,
+      rentPerMonth: "225000.00",
+      securityDeposit: "1350000.00",
+      startDate: new Date("2024-04-01"),
+      endDate: new Date("2029-03-31"),
+      renewalDate: new Date("2028-10-01"),
+      rentUpliftPercent: "5.50",
+      rentUpliftClause: "5.5% annual escalation",
+      status: "active",
+    })
+    .returning();
+
+  const [contract5Jane] = await db
+    .insert(contracts)
+    .values({
+      leaseNumber: "ABC-GUR-2024-010",
+      customerId: customer2.id,
+      propertyId: prop10.id,
+      rmId: rm2.id,
+      sqft: 1950,
+      rentPerMonth: "145000.00",
+      securityDeposit: "870000.00",
+      startDate: new Date("2024-07-01"),
+      endDate: new Date("2027-06-30"),
+      renewalDate: new Date("2027-01-01"),
+      rentUpliftPercent: "4.00",
+      rentUpliftClause: "4% annual escalation",
       status: "active",
     })
     .returning();
@@ -251,16 +399,21 @@ export async function seedDatabase() {
     { contract: contract1, rent: 85000 },
     { contract: contract2, rent: 45000 },
     { contract: contract3, rent: 125000 },
-    { contract: contract4, rent: 95000 },
-    { contract: contract5, rent: 175000 },
+    { contract: contract4John, rent: 115000 },
+    { contract: contract5John, rent: 185000 },
+    { contract: contract1Jane, rent: 95000 },
+    { contract: contract2Jane, rent: 175000 },
+    { contract: contract3Jane, rent: 135000 },
+    { contract: contract4Jane, rent: 225000 },
+    { contract: contract5Jane, rent: 145000 },
   ];
 
   let invoiceCounter = 1001;
   for (const { contract, rent } of allContracts) {
     for (const { month, year } of monthsToSeed) {
-      const isPaid = month <= 12 && year === 2024; // Oct, Nov, Dec 2024 are paid
-      const isPartial = month === 1 && year === 2025; // Jan 2025 is partial for variety
-      const isOverdue = month === 2 && year === 2025; // Feb 2025 is overdue
+      const isPaid = month <= 12 && year === 2024;
+      const isPartial = month === 1 && year === 2025;
+      const isOverdue = month === 2 && year === 2025;
 
       await db.insert(bills).values({
         contractId: contract.id,
@@ -279,29 +432,49 @@ export async function seedDatabase() {
     }
   }
 
-  // Create Documents
+  // Create Documents - Extended list with more document types
   const documentTypes = [
     { category: "contract_letter", name: "Lease Agreement Letter" },
+    { category: "contract_letter", name: "Amendment Letter - Rent Revision" },
     { category: "lease_deed", name: "Registered Lease Deed" },
+    { category: "lease_deed", name: "Lease Deed - Annexure A" },
     { category: "lessor_kyc", name: "Lessor PAN Card" },
-    { category: "noc", name: "No Objection Certificate" },
+    { category: "lessor_kyc", name: "Lessor Aadhaar Card" },
+    { category: "lessor_kyc", name: "Lessor Address Proof" },
+    { category: "noc", name: "No Objection Certificate - Fire Safety" },
+    { category: "noc", name: "No Objection Certificate - Building" },
     { category: "occupancy_certificate", name: "Occupancy Certificate" },
+    { category: "occupancy_certificate", name: "Completion Certificate" },
+    { category: "rent_invoice", name: "Rent Invoice - Oct 2024" },
+    { category: "rent_invoice", name: "Rent Invoice - Nov 2024" },
+    { category: "rent_invoice", name: "Rent Invoice - Dec 2024" },
     { category: "rent_invoice", name: "Rent Invoice - Jan 2025" },
-    { category: "utility_invoice", name: "Electricity Bill - Jan 2025" },
+    { category: "utility_invoice", name: "Electricity Bill - Oct 2024" },
+    { category: "utility_invoice", name: "Electricity Bill - Nov 2024" },
+    { category: "utility_invoice", name: "Electricity Bill - Dec 2024" },
+    { category: "utility_invoice", name: "Water Bill - Q4 2024" },
+    { category: "other", name: "Property Insurance Policy" },
+    { category: "other", name: "Maintenance Agreement" },
+    { category: "other", name: "Parking Allotment Letter" },
   ];
 
-  for (const contract of [contract1, contract2, contract3, contract4, contract5]) {
+  const allContractsForDocs = [
+    contract1, contract2, contract3, contract4John, contract5John,
+    contract1Jane, contract2Jane, contract3Jane, contract4Jane, contract5Jane
+  ];
+
+  for (const contract of allContractsForDocs) {
     for (const docType of documentTypes) {
       await db.insert(documents).values({
         contractId: contract.id,
         category: docType.category as any,
         name: docType.name,
-        fileUrl: `/documents/${contract.leaseNumber}/${docType.category}.pdf`,
+        fileUrl: `/documents/${contract.leaseNumber}/${docType.category}_${docType.name.toLowerCase().replace(/\s+/g, '_')}.pdf`,
       });
     }
   }
 
-  // Create Notifications for Customer 1
+  // Create Notifications for Customer 1 (John)
   await db.insert(notifications).values({
     userId: customer1.id,
     contractId: contract1.id,
@@ -337,19 +510,37 @@ export async function seedDatabase() {
     isRead: false,
   });
 
-  // Create Notifications for Customer 2
+  await db.insert(notifications).values({
+    userId: customer1.id,
+    contractId: contract4John.id,
+    type: "general",
+    title: "New Property Onboarded",
+    message: `Congratulations! Your new lease at High Street Phoenix has been successfully onboarded. Welcome to the ABC Real Estate family!`,
+    isRead: true,
+  });
+
+  await db.insert(notifications).values({
+    userId: customer1.id,
+    contractId: contract5John.id,
+    type: "maintenance",
+    title: "HVAC Maintenance Scheduled",
+    message: `Your property at Lodha Bellezza will have HVAC maintenance on Feb 25, 2025. Our technician will visit between 10 AM - 2 PM.`,
+    isRead: false,
+  });
+
+  // Create Notifications for Customer 2 (Jane)
   await db.insert(notifications).values({
     userId: customer2.id,
-    contractId: contract4.id,
+    contractId: contract1Jane.id,
     type: "rm_introduction",
     title: "Welcome to ABC Real Estate",
-    message: `Hi Jane, I'm Sarah Williams, your Relationship Manager. I'll be assisting you with your Select Citywalk and DLF Park Place leases.`,
+    message: `Hi Jane, I'm Sarah Williams, your Relationship Manager. I'll be assisting you with all your leases. Feel free to reach out anytime!`,
     isRead: true,
   });
 
   await db.insert(notifications).values({
     userId: customer2.id,
-    contractId: contract5.id,
+    contractId: contract2Jane.id,
     type: "maintenance",
     title: "Water Supply Disruption",
     message: `DLF Park Place will have scheduled water supply maintenance on Feb 20, 2025 from 9 AM to 3 PM. Please store water accordingly.`,
@@ -358,14 +549,40 @@ export async function seedDatabase() {
 
   await db.insert(notifications).values({
     userId: customer2.id,
-    contractId: contract4.id,
-    type: "termination",
-    title: "Lease Termination Terms",
-    message: `As per your request, please find attached the lease termination terms and conditions for your review. Contact your RM for further discussion.`,
+    contractId: contract3Jane.id,
+    type: "lease_expiry",
+    title: "Lease Renewal Due Soon",
+    message: `Your lease for Ambience Mall - Shop GF-18 is approaching renewal. Please contact your RM to initiate the renewal process.`,
     isRead: false,
   });
 
-  // Create Service Requests
+  await db.insert(notifications).values({
+    userId: customer2.id,
+    contractId: contract4Jane.id,
+    type: "general",
+    title: "Rent Payment Received",
+    message: `Thank you! Your rent payment of Rs. 2,25,000 for DLF Cyber Hub - Office 401 has been received.`,
+    isRead: true,
+  });
+
+  await db.insert(notifications).values({
+    userId: customer2.id,
+    contractId: contract5Jane.id,
+    type: "maintenance",
+    title: "Pest Control Service",
+    message: `Routine pest control service is scheduled for Emaar Palm Heights on March 5, 2025. Please keep the premises accessible.`,
+    isRead: false,
+  });
+
+  await db.insert(notifications).values({
+    userId: customer2.id,
+    type: "general",
+    title: "Annual Property Review",
+    message: `We will be conducting annual property inspections for all our tenants in March 2025. Your RM will coordinate the schedule.`,
+    isRead: false,
+  });
+
+  // Create Service Requests for John
   await db.insert(serviceRequests).values({
     contractId: contract1.id,
     customerId: customer1.id,
@@ -396,7 +613,27 @@ export async function seedDatabase() {
   });
 
   await db.insert(serviceRequests).values({
-    contractId: contract4.id,
+    contractId: contract4John.id,
+    customerId: customer1.id,
+    type: "credit_request",
+    subject: "Credit for Early Payment",
+    description: "I made an advance payment for 3 months rent. Please adjust the credit to upcoming invoices.",
+    status: "resolved",
+    rmNote: "Credit of Rs. 3,45,000 applied to Feb-Apr 2025 invoices.",
+  });
+
+  await db.insert(serviceRequests).values({
+    contractId: contract5John.id,
+    customerId: customer1.id,
+    type: "parking_statement",
+    subject: "Request Parking Statement",
+    description: "Please provide detailed parking charges and allocation details for my Hyderabad property.",
+    status: "new",
+  });
+
+  // Create Service Requests for Jane
+  await db.insert(serviceRequests).values({
+    contractId: contract1Jane.id,
     customerId: customer2.id,
     type: "parking_statement",
     subject: "Request for Parking Statement",
@@ -406,12 +643,40 @@ export async function seedDatabase() {
   });
 
   await db.insert(serviceRequests).values({
-    contractId: contract5.id,
+    contractId: contract2Jane.id,
     customerId: customer2.id,
     type: "credit_request",
     subject: "Request for Rent Credit",
     description: "Due to water supply issues in January, requesting partial rent credit for the inconvenience caused.",
     status: "in_progress",
+  });
+
+  await db.insert(serviceRequests).values({
+    contractId: contract3Jane.id,
+    customerId: customer2.id,
+    type: "other",
+    subject: "Lease Renewal Inquiry",
+    description: "I would like to discuss renewal terms for my Ambience Mall lease. Please share the revised rent proposal.",
+    status: "new",
+  });
+
+  await db.insert(serviceRequests).values({
+    contractId: contract4Jane.id,
+    customerId: customer2.id,
+    type: "maintenance",
+    subject: "Office AC Maintenance Required",
+    description: "The central AC in our Cyber Hub office needs servicing. It's not cooling efficiently.",
+    status: "in_progress",
+    rmNote: "Technician visit scheduled for Feb 10, 2025.",
+  });
+
+  await db.insert(serviceRequests).values({
+    contractId: contract5Jane.id,
+    customerId: customer2.id,
+    type: "document_request",
+    subject: "Request Lease Copy",
+    description: "Please provide a certified copy of my lease agreement for bank loan documentation.",
+    status: "new",
   });
 
   console.log("Database seeded successfully!");
