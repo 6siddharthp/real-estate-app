@@ -1,0 +1,128 @@
+Build a working POC web application called “ABC Real Estate Customer Portal”.
+
+Context
+ABC Real Estate leases:
+1) Retail spaces in malls (shops/stalls/spaces)
+2) Residential units in condos/societies
+In this portal, “customers” are the tenants/leaseholders. ABC staff includes Relationship Managers (RMs) and Admins.
+
+Objective
+Deliver a clickable, demo-ready POC that I can hand to a customer.
+- Must support multiple customer accounts and multiple staff accounts.
+- Must support three personas (role-based access): Customer, Relationship Manager, Admin.
+- Keep it simple, but real: login, role-based views, seeded demo data, and core workflows.
+- You decide the best tech stack and architecture in Replit (choose what’s fastest and most maintainable for a POC).
+
+Core Concepts (data you should model)
+- Customer (tenant) can have multiple contracts across properties (retail + residential).
+- Property (Retail or Residential)
+- Contract/Lease (lease number, dates, sqft, rent/month, deposit, renewal date, rent uplift clause, status)
+- Billing/Outstanding items (statement of account, due/paid, invoices)
+- Documents (contracts, lease deed, NOC, occupancy certificate, utility invoices, rent invoices, etc.)
+- Notifications (lease expiry reminders, maintenance notices, termination notices, RM intro)
+- Service Requests (customer raises a request; RM views/updates; Admin can oversee)
+
+Authentication & Roles
+- Single login screen.
+- After login, route user to the correct persona experience based on role.
+- Seed demo users:
+  - At least 2 Customers, each with multiple contracts (mix retail + residential)
+  - At least 2 Relationship Managers
+  - 1 Admin
+- Provide demo credentials in the README.
+
+CUSTOMER (TENANT) EXPERIENCE (must implement)
+Layout:
+- Left sidebar navigation:
+  - Dashboard
+  - Outstanding Bills
+  - View Documents
+  - Notifications
+  - Contact Us
+- Top header includes a scope selector:
+  - “All Properties” OR select a specific contract/property
+- Do NOT show notifications on the dashboard/home (notifications only inside Notifications page).
+
+Pages:
+1) Dashboard
+- For “All Properties”: show aggregated KPIs + list of all contracts
+- For selected contract: show contract-level KPIs
+KPIs to show:
+- sqft
+- rent per month (average for all vs specific)
+- lease cycle / dates
+- next renewal due date
+- security deposit
+- rent uplift % and clause summary
+Also show a “My Contracts” table and allow switching selection.
+
+2) Outstanding Bills
+- Show outstanding total (per scope)
+- Statement of account table (month/year, invoice #, due, paid, status, due date)
+- Simple trend view of rent movement (chart if easy, otherwise table)
+- Allow “Download Statement of Account” (CSV/PDF is fine)
+- Show “Your Relationship Manager” details for the selected contract.
+
+3) View Documents
+- Filter by scope + category + search
+- Table list with View/Download
+Document categories to include at minimum:
+  Contract letters, Lease deed, Lessor KYC (PAN/PIN/etc), NOC, Occupancy certificate,
+  Utility invoices, Rent invoices, Other
+
+4) Notifications
+- List notifications with filters (All/Unread + Type + Scope)
+- Actions: mark read, mark all read
+Seed examples:
+- RM introduction
+- Lease expiry reminder (e.g., 6 months remaining)
+- Maintenance notice (service disruption)
+- Termination notice
+
+5) Contact Us
+Two parts:
+A) Support Contacts
+- Relationship manager name/phone/email
+- Generic ABC helpdesk contact
+B) Create Service Request form
+- Choose contract/property (required)
+- Request type (document request, billing clarification, credit request, parking statement, maintenance, other)
+- Subject + description + optional attachment
+- Submit creates a service request
+Also show “My Service Requests” list with status.
+
+STAFF EXPERIENCE (minimum POC scope)
+6) Relationship Manager (RM) Portal
+- RM logs in and sees assigned customers/contracts.
+- RM can view:
+  - customer profile + contracts
+  - service requests submitted by those customers
+  - ability to update service request status (New → In Progress → Resolved)
+  - optionally add a note/comment
+
+7) Admin Portal (minimal)
+- Admin can view:
+  - list of users (customers + staff)
+  - list of properties/contracts
+  - list of service requests (all)
+- Admin can create a new customer + assign contracts + assign RM (simple form is enough).
+
+Demo Data Requirements
+- Include realistic seeded demo data:
+  - One customer with 2 retail leases + 1 residential lease
+  - Another customer with at least 1 retail + 1 residential
+  - Bills across multiple months with a mix of paid/unpaid
+  - Documents across multiple categories
+  - Notifications across types
+  - Service requests (at least 3) across statuses
+
+POC Quality Bar
+- Must run end-to-end inside Replit with one-click “Run”.
+- Provide a README with:
+  - what the app does
+  - demo credentials
+  - how to run
+- UI should be clean and navigable (doesn’t need to be perfect).
+- Prefer simplicity over over-engineering, but keep code structured so additional personas/features can be added.
+
+Deliver the complete working project.
