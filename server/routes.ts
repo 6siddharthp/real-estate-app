@@ -5,7 +5,7 @@ import pgSession from "connect-pg-simple";
 import cors from "cors";
 import { pool } from "./db";
 import { storage } from "./storage";
-import { loginSchema, insertServiceRequestSchema } from "@shared/schema";
+import { loginSchema, insertServiceRequestSchema, insertPropertySchema, insertContractSchema } from "@shared/schema";
 import { z } from "zod";
 
 declare module "express-session" {
@@ -363,6 +363,24 @@ export async function registerRoutes(
     res.json(properties);
   });
 
+  app.post("/api/admin/properties", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const validatedData = insertPropertySchema.parse(req.body);
+      const newProperty = await storage.createProperty(validatedData);
+      res.json(newProperty);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Create property error:", error);
+      res.status(500).json({ message: "Failed to create property" });
+    }
+  });
+
   app.get("/api/admin/contracts", requireAuth, async (req, res) => {
     const user = await storage.getUser(req.session.userId!);
     if (!user || user.role !== "admin") {
@@ -370,6 +388,37 @@ export async function registerRoutes(
     }
     const contracts = await storage.getAllContractsWithDetails();
     res.json(contracts);
+  });
+
+  app.post("/api/admin/contracts", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      // Parse dates if they're strings
+      const body = { ...req.body };
+      if (typeof body.startDate === 'string') {
+        body.startDate = new Date(body.startDate);
+      }
+      if (typeof body.endDate === 'string') {
+        body.endDate = new Date(body.endDate);
+      }
+      if (body.renewalDate && typeof body.renewalDate === 'string') {
+        body.renewalDate = new Date(body.renewalDate);
+      }
+      
+      const validatedData = insertContractSchema.parse(body);
+      const newContract = await storage.createContract(validatedData);
+      res.json(newContract);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Create contract error:", error);
+      res.status(500).json({ message: "Failed to create contract" });
+    }
   });
 
   app.get("/api/admin/service-requests", requireAuth, async (req, res) => {
