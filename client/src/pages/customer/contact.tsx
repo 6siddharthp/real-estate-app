@@ -174,6 +174,13 @@ export default function CustomerContact() {
 
   const { data: rm } = useQuery<UserType>({
     queryKey: ["/api/customer/rm", selectedContractId],
+    queryFn: async () => {
+      const res = await fetch(`/api/customer/rm?contractId=${selectedContractId}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch RM");
+      return res.json();
+    },
     enabled: !!selectedContractId,
   });
 

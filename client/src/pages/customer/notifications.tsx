@@ -41,7 +41,7 @@ export default function CustomerNotifications() {
   const [typeFilter, setTypeFilter] = useState("all");
 
   const { data: notifications = [], isLoading } = useQuery<NotificationWithContract[]>({
-    queryKey: ["/api/customer/notifications", selectedContractId],
+    queryKey: ["/api/customer/notifications"],
   });
 
   const markReadMutation = useMutation({

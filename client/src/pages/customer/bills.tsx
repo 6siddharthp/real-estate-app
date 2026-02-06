@@ -21,11 +21,18 @@ export default function CustomerBills() {
   const { selectedContractId } = useContract();
 
   const { data: bills = [], isLoading } = useQuery<BillWithContract[]>({
-    queryKey: ["/api/customer/bills", selectedContractId],
+    queryKey: ["/api/customer/bills"],
   });
 
   const { data: rm } = useQuery<UserType>({
     queryKey: ["/api/customer/rm", selectedContractId],
+    queryFn: async () => {
+      const res = await fetch(`/api/customer/rm?contractId=${selectedContractId}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch RM");
+      return res.json();
+    },
     enabled: !!selectedContractId,
   });
 

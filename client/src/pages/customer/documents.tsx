@@ -43,7 +43,7 @@ export default function CustomerDocuments() {
   const [categoryFilter, setCategoryFilter] = useState("all");
 
   const { data: documents = [], isLoading } = useQuery<DocumentWithContract[]>({
-    queryKey: ["/api/customer/documents", selectedContractId],
+    queryKey: ["/api/customer/documents"],
   });
 
   const filteredDocuments = documents
