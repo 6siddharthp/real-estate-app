@@ -570,6 +570,20 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/admin/contracts/:id", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      await storage.deleteContract(req.params.id);
+      res.json({ message: "Contract deleted" });
+    } catch (error) {
+      console.error("Delete contract error:", error);
+      res.status(500).json({ message: "Failed to delete contract" });
+    }
+  });
+
   app.post("/api/admin/contracts/bulk", requireAuth, async (req, res) => {
     try {
       const user = await storage.getUser(req.session.userId!);

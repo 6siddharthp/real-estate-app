@@ -54,6 +54,7 @@ export interface IStorage {
   getAllContractsWithDetails(): Promise<(Contract & { property: Property; customer: User; rm?: User })[]>;
   createContract(contract: InsertContract): Promise<Contract>;
   updateContract(id: string, contract: Partial<InsertContract>): Promise<Contract>;
+  deleteContract(id: string): Promise<void>;
   bulkCreateContracts(contractsData: InsertContract[]): Promise<Contract[]>;
 
   // Bills
@@ -231,6 +232,10 @@ export class DatabaseStorage implements IStorage {
   async updateContract(id: string, contract: Partial<InsertContract>): Promise<Contract> {
     const [updated] = await db.update(contracts).set(contract).where(eq(contracts.id, id)).returning();
     return updated;
+  }
+
+  async deleteContract(id: string): Promise<void> {
+    await db.delete(contracts).where(eq(contracts.id, id));
   }
 
   async bulkCreateContracts(contractsData: InsertContract[]): Promise<Contract[]> {

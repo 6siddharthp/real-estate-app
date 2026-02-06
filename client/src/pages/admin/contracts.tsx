@@ -40,7 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileText, Building, Home, Plus, Loader2, UserPlus, Pencil, Download, Upload } from "lucide-react";
+import { FileText, Building, Home, Plus, Loader2, UserPlus, Pencil, Download, Upload, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import type { Contract, Property, User } from "@shared/schema";
 
@@ -181,6 +181,25 @@ export default function AdminContracts() {
       toast({ title: "Import failed", description: error instanceof Error ? error.message : "Failed to import contracts", variant: "destructive" });
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/admin/contracts/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/contracts"] });
+      toast({ title: "Contract deleted", description: "The contract has been deleted successfully." });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to delete contract", variant: "destructive" });
+    },
+  });
+
+  const handleDelete = (contract: ContractWithRelations) => {
+    if (confirm(`Are you sure you want to delete contract "${contract.leaseNumber}"?`)) {
+      deleteMutation.mutate(contract.id);
+    }
+  };
 
   const onCreateSubmit = (data: ContractFormData) => createMutation.mutate(data);
   const onEditSubmit = (data: ContractFormData) => {
@@ -399,7 +418,12 @@ export default function AdminContracts() {
                     <TableCell className="text-right">{formatCurrency(parseFloat(contract.rentPerMonth))}</TableCell>
                     <TableCell><Badge className={getStatusColor(contract.status)}>{contract.status.replace("_", " ")}</Badge></TableCell>
                     <TableCell>{format(new Date(contract.endDate), "dd MMM yyyy")}</TableCell>
-                    <TableCell><Button variant="ghost" size="icon" onClick={() => handleEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}><Pencil className="h-4 w-4" /></Button></TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(contract)} data-testid={`button-edit-contract-${contract.id}`}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
