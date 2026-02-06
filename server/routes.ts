@@ -5,7 +5,7 @@ import pgSession from "connect-pg-simple";
 import cors from "cors";
 import { pool } from "./db";
 import { storage } from "./storage";
-import { loginSchema, insertServiceRequestSchema, insertPropertySchema, insertContractSchema, insertUserSchema, insertBillSchema } from "@shared/schema";
+import { loginSchema, insertServiceRequestSchema, insertPropertySchema, insertContractSchema, insertUserSchema, insertBillSchema, insertDocumentSchema } from "@shared/schema";
 import { z } from "zod";
 
 declare module "express-session" {
@@ -391,6 +391,59 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Update bill status error:", error);
       res.status(500).json({ message: "Failed to update bill status" });
+    }
+  });
+
+  // RM Properties (with customer details)
+  app.get("/api/rm/properties", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "rm") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const contractsWithCustomers = await storage.getContractsWithCustomerByRmId(user.id);
+    res.json(contractsWithCustomers);
+  });
+
+  // RM Documents
+  app.get("/api/rm/documents", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "rm") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const contractId = req.query.contractId as string | undefined;
+    if (contractId) {
+      const contract = await storage.getContract(contractId);
+      if (!contract || contract.rmId !== user.id) {
+        return res.status(403).json({ message: "Contract not assigned to you" });
+      }
+      const docs = await storage.getDocumentsByContractId(contractId);
+      return res.json(docs);
+    }
+    const docs = await storage.getDocumentsByRmId(user.id);
+    res.json(docs);
+  });
+
+  app.post("/api/rm/documents", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "rm") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const contract = await storage.getContract(req.body.contractId);
+      if (!contract || contract.rmId !== user.id) {
+        return res.status(403).json({ message: "Contract not assigned to you" });
+      }
+
+      const validatedData = insertDocumentSchema.parse(req.body);
+      const document = await storage.createDocument(validatedData);
+      res.json(document);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Create document error:", error);
+      res.status(500).json({ message: "Failed to create document" });
     }
   });
 

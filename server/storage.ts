@@ -23,6 +23,7 @@ import {
   type ServiceRequest,
   type InsertServiceRequest,
   type ContractWithDetails,
+  type ContractWithCustomer,
   type BillWithContract,
   type DocumentWithContract,
   type NotificationWithContract,
@@ -67,7 +68,11 @@ export interface IStorage {
   // Documents
   getDocumentsByContractId(contractId: string): Promise<DocumentWithContract[]>;
   getDocumentsByCustomerId(customerId: string): Promise<DocumentWithContract[]>;
+  getDocumentsByRmId(rmId: string): Promise<DocumentWithContract[]>;
   createDocument(document: InsertDocument): Promise<Document>;
+
+  // RM Properties
+  getContractsWithCustomerByRmId(rmId: string): Promise<ContractWithCustomer[]>;
 
   // Notifications
   getNotificationsByUserId(userId: string): Promise<NotificationWithContract[]>;
@@ -361,9 +366,47 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getDocumentsByRmId(rmId: string): Promise<DocumentWithContract[]> {
+    const rmContracts = await this.getContractsByRmId(rmId);
+    const contractIds = rmContracts.map((c) => c.id);
+
+    if (contractIds.length === 0) return [];
+
+    const rmDocs = await db
+      .select()
+      .from(documents)
+      .where(inArray(documents.contractId, contractIds));
+
+    const result: DocumentWithContract[] = [];
+    for (const doc of rmDocs) {
+      const contract = rmContracts.find((c) => c.id === doc.contractId);
+      if (contract) {
+        result.push({ ...doc, contract, property: contract.property });
+      }
+    }
+    return result;
+  }
+
   async createDocument(document: InsertDocument): Promise<Document> {
     const [created] = await db.insert(documents).values(document).returning();
     return created;
+  }
+
+  async getContractsWithCustomerByRmId(rmId: string): Promise<ContractWithCustomer[]> {
+    const rmContracts = await db
+      .select()
+      .from(contracts)
+      .where(eq(contracts.rmId, rmId));
+
+    const result: ContractWithCustomer[] = [];
+    for (const contract of rmContracts) {
+      const property = await this.getProperty(contract.propertyId);
+      const customer = await this.getUser(contract.customerId);
+      if (property && customer) {
+        result.push({ ...contract, property, customer: { ...customer, password: "" } });
+      }
+    }
+    return result;
   }
 
   async getNotificationsByUserId(userId: string): Promise<NotificationWithContract[]> {

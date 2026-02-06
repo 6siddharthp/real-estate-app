@@ -38,6 +38,7 @@ import {
 const rmNavItems = [
   { title: "Dashboard", href: "/rm/dashboard", icon: Home },
   { title: "My Customers", href: "/rm/customers", icon: Users },
+  { title: "My Properties", href: "/rm/properties", icon: Building },
   { title: "Bills & Rent", href: "/rm/bills", icon: IndianRupee },
   { title: "Service Requests", href: "/rm/service-requests", icon: ClipboardList },
 ];

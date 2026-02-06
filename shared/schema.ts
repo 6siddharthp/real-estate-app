@@ -135,6 +135,11 @@ export type ContractWithDetails = Contract & {
   rm?: User;
 };
 
+export type ContractWithCustomer = Contract & {
+  property: Property;
+  customer: User;
+};
+
 export type BillWithContract = Bill & {
   contract: Contract;
   property: Property;
