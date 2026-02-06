@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { useContract } from "@/lib/contract-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +21,7 @@ import {
   TrendingUp,
   Building,
   Home,
-  ArrowRight,
+  Eye,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { ContractWithDetails } from "@shared/schema";
@@ -296,14 +297,15 @@ export default function CustomerDashboard() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedContractId(contract.id)}
-                      data-testid={`button-select-contract-${contract.id}`}
-                    >
-                      View <ArrowRight className="ml-1 h-3 w-3" />
-                    </Button>
+                    <Link href={`/customer/contract/${contract.id}`}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        data-testid={`button-view-contract-${contract.id}`}
+                      >
+                        <Eye className="mr-1 h-3 w-3" /> Details
+                      </Button>
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))}

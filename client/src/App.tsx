@@ -14,6 +14,7 @@ import CustomerBills from "@/pages/customer/bills";
 import CustomerDocuments from "@/pages/customer/documents";
 import CustomerNotifications from "@/pages/customer/notifications";
 import CustomerContact from "@/pages/customer/contact";
+import CustomerContractDetail from "@/pages/customer/contract-detail";
 import RMDashboard from "@/pages/rm/dashboard";
 import RMCustomers from "@/pages/rm/customers";
 import RMServiceRequests from "@/pages/rm/service-requests";
@@ -41,6 +42,7 @@ function CustomerRoutes() {
       <CustomerLayout>
         <Switch>
           <Route path="/customer/dashboard" component={CustomerDashboard} />
+          <Route path="/customer/contract/:id" component={CustomerContractDetail} />
           <Route path="/customer/bills" component={CustomerBills} />
           <Route path="/customer/documents" component={CustomerDocuments} />
           <Route path="/customer/notifications" component={CustomerNotifications} />
@@ -116,13 +118,13 @@ function AppRouter() {
       <Route path="/login">
         <Redirect to="/" />
       </Route>
-      <Route path="/customer/:rest*">
+      <Route path="/customer/*">
         {user.role === "customer" ? <CustomerRoutes /> : <Redirect to="/" />}
       </Route>
-      <Route path="/rm/:rest*">
+      <Route path="/rm/*">
         {user.role === "rm" ? <RMRoutes /> : <Redirect to="/" />}
       </Route>
-      <Route path="/admin/:rest*">
+      <Route path="/admin/*">
         {user.role === "admin" ? <AdminRoutes /> : <Redirect to="/" />}
       </Route>
       <Route component={NotFound} />
