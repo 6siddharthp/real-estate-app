@@ -599,6 +599,29 @@ export async function registerRoutes(
       if (errors.length > 0) {
         return res.status(400).json({ message: "Validation errors", errors });
       }
+
+      const allUsers = await storage.getAllUsers();
+      const allProperties = await storage.getAllProperties();
+      const userIds = new Set(allUsers.map(u => u.id));
+      const propertyIds = new Set(allProperties.map(p => p.id));
+
+      for (let i = 0; i < validatedData.length; i++) {
+        const c = validatedData[i] as any;
+        if (!userIds.has(c.customerId)) {
+          errors.push({ row: i + 1, error: `Customer ID "${c.customerId}" does not exist` });
+        }
+        if (!propertyIds.has(c.propertyId)) {
+          errors.push({ row: i + 1, error: `Property ID "${c.propertyId}" does not exist` });
+        }
+        if (c.rmId && !userIds.has(c.rmId)) {
+          errors.push({ row: i + 1, error: `RM ID "${c.rmId}" does not exist` });
+        }
+      }
+
+      if (errors.length > 0) {
+        return res.status(400).json({ message: "Validation errors", errors });
+      }
+
       const created = await storage.bulkCreateContracts(validatedData as any);
       res.json({ created: created.length, contracts: created });
     } catch (error) {
