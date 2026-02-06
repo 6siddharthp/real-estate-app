@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useContract } from "@/lib/contract-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,10 +28,7 @@ export default function CustomerBills() {
   const { data: rm } = useQuery<UserType>({
     queryKey: ["/api/customer/rm", selectedContractId],
     queryFn: async () => {
-      const res = await fetch(`/api/customer/rm?contractId=${selectedContractId}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to fetch RM");
+      const res = await apiRequest("GET", `/api/customer/rm?contractId=${selectedContractId}`);
       return res.json();
     },
     enabled: !!selectedContractId,
