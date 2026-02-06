@@ -32,11 +32,13 @@ import {
   Building,
   FileText,
   UserPlus,
+  IndianRupee,
 } from "lucide-react";
 
 const rmNavItems = [
   { title: "Dashboard", href: "/rm/dashboard", icon: Home },
   { title: "My Customers", href: "/rm/customers", icon: Users },
+  { title: "Bills & Rent", href: "/rm/bills", icon: IndianRupee },
   { title: "Service Requests", href: "/rm/service-requests", icon: ClipboardList },
 ];
 

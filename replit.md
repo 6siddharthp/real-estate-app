@@ -79,4 +79,10 @@ Preferred communication style: Simple, everyday language.
 ### Test Credentials
 - Admin: `admin` / `admin123`
 - Customer: `john.doe` / `demo123`
-- RM: `jane.smith` / `demo123`
+- RM: `rm.sarah` / `demo123`
+
+### RM Bills & Rent Management
+- RMs can create bill entries for contracts they manage
+- RMs can mark bills as overdue, paid, or unpaid
+- Bills appear on customer's Bills page
+- API routes: GET/POST /api/rm/bills, PATCH /api/rm/bills/:id/status, GET /api/rm/contracts

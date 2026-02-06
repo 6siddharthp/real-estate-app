@@ -60,7 +60,9 @@ export interface IStorage {
   // Bills
   getBillsByContractId(contractId: string): Promise<BillWithContract[]>;
   getBillsByCustomerId(customerId: string): Promise<BillWithContract[]>;
+  getBillsByRmId(rmId: string): Promise<BillWithContract[]>;
   createBill(bill: InsertBill): Promise<Bill>;
+  updateBillStatus(id: string, status: string): Promise<Bill>;
 
   // Documents
   getDocumentsByContractId(contractId: string): Promise<DocumentWithContract[]>;
@@ -284,9 +286,39 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getBillsByRmId(rmId: string): Promise<BillWithContract[]> {
+    const rmContracts = await this.getContractsByRmId(rmId);
+    const contractIds = rmContracts.map((c) => c.id);
+
+    if (contractIds.length === 0) return [];
+
+    const rmBills = await db
+      .select()
+      .from(bills)
+      .where(inArray(bills.contractId, contractIds));
+
+    const result: BillWithContract[] = [];
+    for (const bill of rmBills) {
+      const contract = rmContracts.find((c) => c.id === bill.contractId);
+      if (contract) {
+        result.push({ ...bill, contract, property: contract.property });
+      }
+    }
+    return result;
+  }
+
   async createBill(bill: InsertBill): Promise<Bill> {
     const [created] = await db.insert(bills).values(bill).returning();
     return created;
+  }
+
+  async updateBillStatus(id: string, status: string): Promise<Bill> {
+    const [updated] = await db
+      .update(bills)
+      .set({ status: status as any })
+      .where(eq(bills.id, id))
+      .returning();
+    return updated;
   }
 
   async getDocumentsByContractId(contractId: string): Promise<DocumentWithContract[]> {

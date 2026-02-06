@@ -18,6 +18,7 @@ import CustomerContractDetail from "@/pages/customer/contract-detail";
 import RMDashboard from "@/pages/rm/dashboard";
 import RMCustomers from "@/pages/rm/customers";
 import RMServiceRequests from "@/pages/rm/service-requests";
+import RMBills from "@/pages/rm/bills";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
 import AdminProperties from "@/pages/admin/properties";
@@ -62,6 +63,7 @@ function RMRoutes() {
       <Switch>
         <Route path="/rm/dashboard" component={RMDashboard} />
         <Route path="/rm/customers" component={RMCustomers} />
+        <Route path="/rm/bills" component={RMBills} />
         <Route path="/rm/service-requests" component={RMServiceRequests} />
         <Route>
           <Redirect to="/rm/dashboard" />

@@ -5,7 +5,7 @@ import pgSession from "connect-pg-simple";
 import cors from "cors";
 import { pool } from "./db";
 import { storage } from "./storage";
-import { loginSchema, insertServiceRequestSchema, insertPropertySchema, insertContractSchema, insertUserSchema } from "@shared/schema";
+import { loginSchema, insertServiceRequestSchema, insertPropertySchema, insertContractSchema, insertUserSchema, insertBillSchema } from "@shared/schema";
 import { z } from "zod";
 
 declare module "express-session" {
@@ -319,6 +319,79 @@ export async function registerRoutes(
     const { status, rmNote } = req.body;
     await storage.updateServiceRequest(req.params.id, status, rmNote);
     res.json({ success: true });
+  });
+
+  app.get("/api/rm/contracts", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "rm") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const rmContracts = await storage.getContractsByRmId(user.id);
+    res.json(rmContracts);
+  });
+
+  app.get("/api/rm/bills", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "rm") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const rmBills = await storage.getBillsByRmId(user.id);
+    res.json(rmBills);
+  });
+
+  app.post("/api/rm/bills", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "rm") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const body = { ...req.body };
+      if (typeof body.dueDate === "string") {
+        body.dueDate = new Date(body.dueDate);
+      }
+
+      const contract = await storage.getContract(body.contractId);
+      if (!contract || contract.rmId !== user.id) {
+        return res.status(403).json({ message: "Contract not assigned to you" });
+      }
+
+      const validatedData = insertBillSchema.parse(body);
+      const bill = await storage.createBill(validatedData);
+      res.json(bill);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Create bill error:", error);
+      res.status(500).json({ message: "Failed to create bill" });
+    }
+  });
+
+  app.patch("/api/rm/bills/:id/status", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user || user.role !== "rm") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const { status } = req.body;
+      if (!["paid", "unpaid", "overdue", "partial"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      const rmBills = await storage.getBillsByRmId(user.id);
+      const billBelongsToRM = rmBills.some((b) => b.id === req.params.id);
+      if (!billBelongsToRM) {
+        return res.status(403).json({ message: "Bill not associated with your contracts" });
+      }
+
+      const bill = await storage.updateBillStatus(req.params.id, status);
+      res.json(bill);
+    } catch (error) {
+      console.error("Update bill status error:", error);
+      res.status(500).json({ message: "Failed to update bill status" });
+    }
   });
 
   // Admin routes

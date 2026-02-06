@@ -18,19 +18,25 @@ import {
   IndianRupee,
   Calendar,
   Shield,
-  TrendingUp,
   Building,
   Home,
   Eye,
+  AlertCircle,
+  Clock,
+  CheckCircle2,
 } from "lucide-react";
 import { format } from "date-fns";
-import type { ContractWithDetails } from "@shared/schema";
+import type { ContractWithDetails, ServiceRequest } from "@shared/schema";
 
 export default function CustomerDashboard() {
   const { selectedContractId, setSelectedContractId } = useContract();
 
   const { data: contracts = [], isLoading } = useQuery<ContractWithDetails[]>({
     queryKey: ["/api/customer/contracts"],
+  });
+
+  const { data: serviceRequests = [], isLoading: srLoading } = useQuery<ServiceRequest[]>({
+    queryKey: ["/api/customer/service-requests"],
   });
 
   const filteredContracts = selectedContractId
@@ -49,24 +55,9 @@ export default function CustomerDashboard() {
       (sum, c) => sum + parseFloat(c.securityDeposit),
       0
     ),
-    nextRenewal:
-      filteredContracts.length > 0
-        ? filteredContracts
-            .filter((c) => c.renewalDate)
-            .sort(
-              (a, b) =>
-                new Date(a.renewalDate!).getTime() -
-                new Date(b.renewalDate!).getTime()
-            )[0]?.renewalDate
-        : null,
-    avgUplift:
-      filteredContracts.length > 0
-        ? filteredContracts
-            .filter((c) => c.rentUpliftPercent)
-            .reduce((sum, c) => sum + parseFloat(c.rentUpliftPercent || "0"), 0) /
-            filteredContracts.filter((c) => c.rentUpliftPercent).length || 0
-        : 0,
   };
+
+  const openRequests = serviceRequests.filter((r) => r.status === "new" || r.status === "in_progress");
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -78,6 +69,19 @@ export default function CustomerDashboard() {
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
       case "terminated":
         return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getRequestStatusColor = (status: string) => {
+    switch (status) {
+      case "new":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
+      case "in_progress":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+      case "resolved":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -98,8 +102,8 @@ export default function CustomerDashboard() {
           <Skeleton className="h-8 w-48 mb-2" />
           <Skeleton className="h-4 w-64" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
             <Skeleton key={i} className="h-32" />
           ))}
         </div>
@@ -110,7 +114,7 @@ export default function CustomerDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-foreground" data-testid="text-dashboard-title">Dashboard</h1>
         <p className="text-muted-foreground">
           {selectedContractId
             ? `Viewing: ${
@@ -120,7 +124,7 @@ export default function CustomerDashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -129,7 +133,7 @@ export default function CustomerDashboard() {
             <Square className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold" data-testid="text-total-sqft">
               {aggregatedKpis.totalSqft.toLocaleString()} sq.ft
             </div>
             <p className="text-xs text-muted-foreground">
@@ -146,7 +150,7 @@ export default function CustomerDashboard() {
             <IndianRupee className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold" data-testid="text-rent">
               {formatCurrency(
                 selectedContractId ? aggregatedKpis.totalRent : aggregatedKpis.avgRent
               )}
@@ -167,7 +171,7 @@ export default function CustomerDashboard() {
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold" data-testid="text-deposit">
               {formatCurrency(aggregatedKpis.totalDeposit)}
             </div>
             <p className="text-xs text-muted-foreground">Held with ABC Real Estate</p>
@@ -184,7 +188,7 @@ export default function CustomerDashboard() {
           <CardContent>
             {filteredContracts.length > 0 ? (
               <>
-                <div className="text-lg font-semibold">
+                <div className="text-lg font-semibold" data-testid="text-lease-period">
                   {format(new Date(filteredContracts[0].startDate), "MMM yyyy")} -{" "}
                   {format(new Date(filteredContracts[0].endDate), "MMM yyyy")}
                 </div>
@@ -201,45 +205,64 @@ export default function CustomerDashboard() {
             )}
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Next Renewal
-            </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {aggregatedKpis.nextRenewal
-                ? format(new Date(aggregatedKpis.nextRenewal), "dd MMM yyyy")
-                : "N/A"}
-            </div>
-            <p className="text-xs text-muted-foreground">Upcoming renewal date</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Rent Uplift
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {aggregatedKpis.avgUplift > 0
-                ? `${aggregatedKpis.avgUplift.toFixed(1)}%`
-                : "N/A"}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {selectedContractId
-                ? filteredContracts[0]?.rentUpliftClause || "No clause specified"
-                : "Average across contracts"}
-            </p>
-          </CardContent>
-        </Card>
       </div>
+
+      {openRequests.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-600" />
+              Open Service Requests
+            </CardTitle>
+            <Link href="/customer/contact">
+              <Button variant="outline" size="sm" data-testid="button-view-all-requests">
+                View All
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {openRequests.map((request) => (
+                  <TableRow key={request.id} data-testid={`row-request-${request.id}`}>
+                    <TableCell className="font-medium" data-testid={`text-request-subject-${request.id}`}>
+                      {request.subject}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="capitalize">
+                        {request.type.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getRequestStatusColor(request.status)}>
+                        <span className="flex items-center gap-1">
+                          {request.status === "new" ? (
+                            <Clock className="h-3 w-3" />
+                          ) : (
+                            <CheckCircle2 className="h-3 w-3" />
+                          )}
+                          {request.status === "in_progress" ? "In Progress" : request.status}
+                        </span>
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {format(new Date(request.createdAt), "dd MMM yyyy")}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
