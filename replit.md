@@ -81,6 +81,14 @@ Preferred communication style: Simple, everyday language.
 - Customer: `john.doe` / `demo123`
 - RM: `rm.sarah` / `demo123`
 
+### RM My Properties & Document Upload
+- RMs can view all properties/contracts assigned to them with customer details
+- RMs can upload documents from their PC for managed properties (uses Replit Object Storage)
+- File upload flow: select file -> presigned URL -> upload to GCS -> save object path in DB
+- Documents appear on customer's Documents page for download
+- API routes: GET /api/rm/properties, GET/POST /api/rm/documents, POST /api/uploads/request-url (auth required)
+- Object storage serves files via GET /objects/* route
+
 ### RM Bills & Rent Management
 - RMs can create bill entries for contracts they manage
 - RMs can mark bills as overdue, paid, or unpaid

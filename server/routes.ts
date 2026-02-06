@@ -7,6 +7,7 @@ import { pool } from "./db";
 import { storage } from "./storage";
 import { loginSchema, insertServiceRequestSchema, insertPropertySchema, insertContractSchema, insertUserSchema, insertBillSchema, insertDocumentSchema } from "@shared/schema";
 import { z } from "zod";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 declare module "express-session" {
   interface SessionData {
@@ -778,6 +779,8 @@ export async function registerRoutes(
     const requests = await storage.getAllServiceRequests();
     res.json(requests);
   });
+
+  registerObjectStorageRoutes(app);
 
   return httpServer;
 }

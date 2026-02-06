@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useUpload } from "@/hooks/use-upload";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,9 @@ import {
   CheckCircle,
   XCircle,
   FolderOpen,
+  File as FileIcon,
+  X,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { ContractWithCustomer, DocumentWithContract } from "@shared/schema";
@@ -62,7 +66,14 @@ export default function RMProperties() {
   const [manageContractId, setManageContractId] = useState<string | null>(null);
   const [docCategory, setDocCategory] = useState("");
   const [docName, setDocName] = useState("");
-  const [docUrl, setDocUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { uploadFile, isUploading, progress } = useUpload({
+    onError: (error) => {
+      toast({ title: "File upload failed", description: error.message, variant: "destructive" });
+    },
+  });
 
   const { data: contracts = [], isLoading } = useQuery<ContractWithCustomer[]>({
     queryKey: ["/api/rm/properties"],
@@ -77,7 +88,7 @@ export default function RMProperties() {
     enabled: !!manageContractId,
   });
 
-  const uploadMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async (data: { contractId: string; category: string; name: string; fileUrl: string }) => {
       await apiRequest("POST", "/api/rm/documents", data);
     },
@@ -86,25 +97,42 @@ export default function RMProperties() {
       toast({ title: "Document uploaded successfully" });
       setDocCategory("");
       setDocName("");
-      setDocUrl("");
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     },
     onError: (error: Error) => {
-      toast({ title: "Failed to upload document", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to save document", description: error.message, variant: "destructive" });
     },
   });
 
-  const handleUpload = () => {
-    if (!manageContractId || !docCategory || !docName || !docUrl) {
-      toast({ title: "Please fill all fields", variant: "destructive" });
+  const handleUpload = async () => {
+    if (!manageContractId || !docCategory || !docName || !selectedFile) {
+      toast({ title: "Please fill all fields and select a file", variant: "destructive" });
       return;
     }
-    uploadMutation.mutate({
+
+    const result = await uploadFile(selectedFile);
+    if (!result) return;
+
+    saveMutation.mutate({
       contractId: manageContractId,
       category: docCategory,
       name: docName,
-      fileUrl: docUrl,
+      fileUrl: result.objectPath,
     });
   };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      if (!docName) {
+        setDocName(file.name.replace(/\.[^/.]+$/, ""));
+      }
+    }
+  };
+
+  const isBusy = isUploading || saveMutation.isPending;
 
   const managedContract = contracts.find((c) => c.id === manageContractId);
 
@@ -340,22 +368,60 @@ export default function RMProperties() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="doc-url">Document URL</Label>
-                  <Input
-                    id="doc-url"
-                    value={docUrl}
-                    onChange={(e) => setDocUrl(e.target.value)}
-                    placeholder="https://example.com/document.pdf"
-                    data-testid="input-doc-url"
-                  />
+                  <Label>Select File</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt,.csv"
+                      data-testid="input-file"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isBusy}
+                      data-testid="button-choose-file"
+                    >
+                      <FileIcon className="h-4 w-4 mr-2" />
+                      Choose File
+                    </Button>
+                    {selectedFile && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-0">
+                        <span className="truncate" data-testid="text-selected-file">
+                          {selectedFile.name}
+                        </span>
+                        <span className="text-xs whitespace-nowrap">
+                          ({(selectedFile.size / 1024).toFixed(0)} KB)
+                        </span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedFile(null);
+                            if (fileInputRef.current) fileInputRef.current.value = "";
+                          }}
+                          data-testid="button-remove-file"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <Button
                   onClick={handleUpload}
-                  disabled={uploadMutation.isPending || !docCategory || !docName || !docUrl}
+                  disabled={isBusy || !docCategory || !docName || !selectedFile}
                   data-testid="button-upload-doc"
                 >
-                  <Upload className="h-4 w-4 mr-2" />
-                  {uploadMutation.isPending ? "Uploading..." : "Upload Document"}
+                  {isBusy ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4 mr-2" />
+                  )}
+                  {isUploading ? `Uploading... ${progress}%` : saveMutation.isPending ? "Saving..." : "Upload Document"}
                 </Button>
               </div>
             </div>
@@ -391,9 +457,10 @@ export default function RMProperties() {
                             href={doc.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-primary hover:underline font-medium"
+                            className="text-primary hover:underline font-medium flex items-center gap-1.5"
                             data-testid={`link-doc-${doc.id}`}
                           >
+                            <FileIcon className="h-3.5 w-3.5 shrink-0" />
                             {doc.name}
                           </a>
                         </TableCell>
