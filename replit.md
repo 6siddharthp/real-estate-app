@@ -89,6 +89,15 @@ Preferred communication style: Simple, everyday language.
 - API routes: GET /api/rm/properties, GET/POST /api/rm/documents, POST /api/uploads/request-url (auth required)
 - Object storage serves files via GET /objects/* route
 
+### Databricks ML Integration (Service Request Allocation)
+- Service requests are auto-assigned to the best RM using a Databricks-hosted ML model
+- Features sent to ML: request type, subject, description, property type, property city, customer/contract IDs
+- Fallback: if ML is not configured or fails, assigns to the contract's default RM
+- Schema additions: assignedRmId, mlConfidence, mlAssigned on service_requests table
+- Environment secrets: DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_ENDPOINT_NAME
+- API: POST /serving-endpoints/{name}/invocations (Databricks), GET /api/admin/ml-status (health check)
+- ML badge shown in RM and Admin service request tables when ML assigned a request
+
 ### RM Bills & Rent Management
 - RMs can create bill entries for contracts they manage
 - RMs can mark bills as overdue, paid, or unpaid

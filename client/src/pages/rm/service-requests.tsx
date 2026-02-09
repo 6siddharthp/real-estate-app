@@ -36,6 +36,7 @@ import {
   AlertCircle,
   MessageSquare,
   Loader2,
+  BrainCircuit,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { ServiceRequestWithDetails } from "@shared/schema";
@@ -167,6 +168,7 @@ export default function RMServiceRequests() {
                 <TableHead>Type</TableHead>
                 <TableHead>Subject</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Assigned</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -174,7 +176,7 @@ export default function RMServiceRequests() {
             <TableBody>
               {filteredRequests.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     No service requests found
                   </TableCell>
                 </TableRow>
@@ -198,6 +200,16 @@ export default function RMServiceRequests() {
                         {getStatusIcon(request.status)}
                         {request.status.replace(/_/g, " ")}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {(request as any).mlAssigned ? (
+                        <Badge variant="outline" className="flex w-fit items-center gap-1" data-testid={`badge-ml-assigned-${request.id}`}>
+                          <BrainCircuit className="h-3 w-3" />
+                          ML
+                        </Badge>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Contract RM</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {format(new Date(request.createdAt), "dd MMM yyyy")}

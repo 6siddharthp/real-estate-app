@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, or } from "drizzle-orm";
 import {
   users,
   properties,
@@ -462,12 +462,16 @@ export class DatabaseStorage implements IStorage {
     const rmContracts = await this.getContractsByRmId(rmId);
     const contractIds = rmContracts.map((c) => c.id);
 
-    if (contractIds.length === 0) return [];
+    const conditions = [];
+    if (contractIds.length > 0) {
+      conditions.push(inArray(serviceRequests.contractId, contractIds));
+    }
+    conditions.push(eq(serviceRequests.assignedRmId, rmId));
 
     const requests = await db
       .select()
       .from(serviceRequests)
-      .where(inArray(serviceRequests.contractId, contractIds));
+      .where(conditions.length > 1 ? or(...conditions) : conditions[0]);
 
     const result: ServiceRequestWithDetails[] = [];
     for (const request of requests) {
@@ -476,6 +480,15 @@ export class DatabaseStorage implements IStorage {
         const customer = await this.getUser(request.customerId);
         if (customer) {
           result.push({ ...request, contract, property: contract.property, customer });
+        }
+      } else {
+        const fetchedContract = await this.getContract(request.contractId);
+        if (fetchedContract) {
+          const property = await this.getProperty(fetchedContract.propertyId);
+          const customer = await this.getUser(request.customerId);
+          if (property && customer) {
+            result.push({ ...request, contract: fetchedContract, property, customer });
+          }
         }
       }
     }

@@ -8,6 +8,7 @@ import { storage } from "./storage";
 import { loginSchema, insertServiceRequestSchema, insertPropertySchema, insertContractSchema, insertUserSchema, insertBillSchema, insertDocumentSchema } from "@shared/schema";
 import { z } from "zod";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { predictServiceRepAssignment, isDatabricksConfigured, healthCheck as databricksHealthCheck } from "./services/databricks-ml";
 
 declare module "express-session" {
   interface SessionData {
@@ -243,11 +244,53 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const data = {
-        ...req.body,
+      const { assignedRmId: _a, mlAssigned: _b, mlConfidence: _c, ...sanitizedBody } = req.body;
+      const data: any = {
+        ...sanitizedBody,
         customerId: user.id,
         status: "new",
+        assignedRmId: null,
+        mlAssigned: false,
+        mlConfidence: null,
       };
+
+      let mlUsed = false;
+      if (isDatabricksConfigured() && data.contractId) {
+        try {
+          const contract = await storage.getContract(data.contractId);
+          if (contract) {
+            const property = await storage.getProperty(contract.propertyId);
+            const prediction = await predictServiceRepAssignment({
+              requestType: data.type || "",
+              subject: data.subject || "",
+              description: data.description || "",
+              propertyType: property?.type || "",
+              propertyCity: property?.city || "",
+              customerId: user.id,
+              contractId: data.contractId,
+            });
+
+            if (prediction) {
+              const rmUser = await storage.getUser(prediction.assignedRmId);
+              if (rmUser && rmUser.role === "rm") {
+                data.assignedRmId = prediction.assignedRmId;
+                data.mlConfidence = String(prediction.confidence);
+                data.mlAssigned = true;
+                mlUsed = true;
+              }
+            }
+          }
+        } catch (mlError) {
+          console.error("Databricks ML prediction failed, using fallback:", mlError);
+        }
+      }
+
+      if (!mlUsed && data.contractId) {
+        const contract = await storage.getContract(data.contractId);
+        if (contract?.rmId) {
+          data.assignedRmId = contract.rmId;
+        }
+      }
 
       const request = await storage.createServiceRequest(data);
       res.json(request);
@@ -778,6 +821,15 @@ export async function registerRoutes(
     }
     const requests = await storage.getAllServiceRequests();
     res.json(requests);
+  });
+
+  app.get("/api/admin/ml-status", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const health = await databricksHealthCheck();
+    res.json(health);
   });
 
   registerObjectStorageRoutes(app);
