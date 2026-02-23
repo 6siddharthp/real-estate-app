@@ -3,5 +3,7 @@ command:
   - "-c"
   - "npm install && npm run build && npm run start"
 env:
-  - name: PORT
-    value: "8000"
+  - name: DATABASE_URL
+    value: "postgresql://neondb_owner:npg_QsK4OwkaY3BE@ep-polished-mouse-a8jl2d6c-pooler.eastus2.azure.neon.tech/neondb?sslmode=require"
+  - name: SESSION_SECRET
+    value: "my-secret-key-123"
