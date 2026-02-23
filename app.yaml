@@ -1,6 +1,7 @@
-command: >
-  npm install &&
-  npm run build &&
-  npm run start
-
-port: 8000
+command:
+  - "bash"
+  - "-c"
+  - "npm install && npm run build && npm run start"
+env:
+  - name: PORT
+    value: "8000"
