@@ -31,21 +31,31 @@ export async function registerRoutes(
   }));
   
   const isProduction = process.env.NODE_ENV === "production";
+  const isDatabricks = !!process.env.DATABRICKS_APP;
+
+  let sessionStore;
+  if (isDatabricks) {
+    console.log("Using in-memory session store for Databricks");
+    sessionStore = undefined;
+  } else {
+    sessionStore = new PgStore({
+      pool: pool,
+      tableName: 'user_sessions',
+      createTableIfMissing: true,
+    });
+  }
+
   app.use(
     session({
-      store: new PgStore({
-        pool: pool,
-        tableName: 'user_sessions',
-        createTableIfMissing: true,
-      }),
+      ...(sessionStore ? { store: sessionStore } : {}),
       secret: process.env.SESSION_SECRET || "abc-real-estate-secret-key",
-      resave: false,
-      saveUninitialized: false,
+      resave: true,
+      saveUninitialized: true,
       proxy: true,
       cookie: {
-        secure: isProduction,
+        secure: false,
         httpOnly: true,
-        sameSite: isProduction ? "none" : "lax",
+        sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000,
         path: "/",
       },
@@ -111,28 +121,24 @@ export async function registerRoutes(
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = loginSchema.parse(req.body);
+      console.log("Login attempt for:", username);
       const user = await storage.getUserByUsername(username);
+      console.log("User found:", !!user);
 
       if (!user || user.password !== password) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
       req.session.userId = user.id;
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
-          return res.status(500).json({ message: "Session error" });
-        }
-        // Return session ID as token for localStorage fallback
-        res.json({ 
-          user: { ...user, password: undefined },
-          token: req.sessionID 
-        });
+      res.json({ 
+        user: { ...user, password: undefined },
+        token: req.sessionID 
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
+      console.error("Login error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

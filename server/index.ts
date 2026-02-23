@@ -4,6 +4,9 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
 
+console.log("DATABASE_URL set:", !!process.env.DATABASE_URL);
+console.log("DATABASE_URL host:", process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL).host : "NOT SET");
+
 const app = express();
 const httpServer = createServer(app);
 
