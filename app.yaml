@@ -3,4 +3,4 @@ command: >
   npm run build &&
   npm run start
 
-port: 5000
+port: 8000
